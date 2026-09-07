@@ -146,6 +146,8 @@ namespace Game.Core
 
         public void HandleRemove(string unitId, int slotIndex) => currentLayout.Clear(slotIndex);
 
+        public void HandleRedirectMove(string unitId, int newTargetSlotIndex) { } // Hub는 진행 중인 이동 자체가 없어 호출될 일이 없다.
+
         public IReadOnlyList<FormationActivity> GetActiveActivities() => Array.Empty<FormationActivity>(); // Hub는 진행 활동이 없다.
 
 #if UNITY_EDITOR

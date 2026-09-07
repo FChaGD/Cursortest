@@ -50,6 +50,25 @@ namespace Game.Core
             activities.Add(new FormationActivity(unitId, FormationActivityKind.Moving, targetSlotIndex, originSlotIndex, pathSlotIndices, requiredSeconds));
         }
 
+        // Cancel+BeginMove를 쓰지 않는다 - BeginMove는 항상 ElapsedSeconds=0으로 시작해 이미 지나온
+        // 구간의 경과 시간을 이어받을 수 없다(기획 21번, 설계 26번 §3). ElapsedSeconds는 internal set이라
+        // 같은 어셈블리인 여기서 생성 직후 대입할 수 있어 별도 생성자 오버로드가 필요 없다.
+        public void RedirectMove(string unitId, int newTargetSlotIndex, IReadOnlyList<int> pathSlotIndices, float requiredSeconds, float elapsedSeconds, int partialSegmentIndex, float partialSegmentWeight)
+        {
+            var index = activities.FindIndex(a => a.UnitId == unitId && a.Kind == FormationActivityKind.Moving);
+            if (index < 0) return;
+
+            var originSlotIndex = activities[index].OriginSlotIndex;
+            activities.RemoveAt(index);
+            var activity = new FormationActivity(unitId, FormationActivityKind.Moving, newTargetSlotIndex, originSlotIndex, pathSlotIndices, requiredSeconds)
+            {
+                ElapsedSeconds = elapsedSeconds,
+                PartialSegmentIndex = partialSegmentIndex,
+                PartialSegmentWeight = partialSegmentWeight
+            };
+            activities.Add(activity);
+        }
+
         public void Cancel(string unitId)
         {
             var index = activities.FindIndex(a => a.UnitId == unitId);

@@ -140,7 +140,11 @@ namespace Game.Core
         // 호출 순서로 정한다 - 반드시 SetPathLines 다음, SetTravelerIcons 이전에 호출할 것
         // (FormationGridEditor.TickActivityOverlays 참고, 실전 확인된 순서: 슬롯 < 경로선 < 이
         // 마크 < 이동 아이콘).
-        public void SetActivityOverlays(IReadOnlyList<FormationActivityOverlayVisual> overlays)
+        // onGhostBeginDrag/onGhostDrag/onGhostEndDrag는 이동 중인 활동의 도착 마크에 한해서만
+        // 실제로 쓰인다(기획 21번, 설계 26번 §5.3) - FormationActivityOverlayVisual.IsRedirectableTarget이
+        // 아닌 마크는 Bind에서 델리게이트를 null로 받아 자연히 무해하다.
+        public void SetActivityOverlays(IReadOnlyList<FormationActivityOverlayVisual> overlays,
+            Action<string, PointerEventData> onGhostBeginDrag = null, Action<PointerEventData> onGhostDrag = null, Action<PointerEventData> onGhostEndDrag = null)
         {
             if (activityOverlayPrefab == null)
             {
@@ -161,7 +165,9 @@ namespace Game.Core
                     var view = activityOverlays[i];
                     view.gameObject.SetActive(true);
                     ((RectTransform)view.transform).anchoredPosition = GetSlotAnchoredPosition(overlay.SlotIndex);
-                    view.Bind(overlay.Unit?.Icon, overlay.Activity.RequiredSeconds - overlay.Activity.ElapsedSeconds);
+                    view.Bind(overlay.Unit?.Icon, overlay.Activity.RequiredSeconds - overlay.Activity.ElapsedSeconds,
+                        overlay.IsRedirectableTarget, overlay.Activity.UnitId, onGhostBeginDrag, onGhostDrag, onGhostEndDrag,
+                        showRemainingSeconds: !overlay.IsMoveOrigin);
                 }
                 else
                 {
@@ -190,20 +196,27 @@ namespace Game.Core
                 pathLines[i].transform.SetAsLastSibling();
                 if (i < moves.Count)
                 {
-                    var move = moves[i];
-                    var positions = new List<Vector2>(move.PathSlotIndices.Count);
-                    foreach (var slotIndex in move.PathSlotIndices)
-                    {
-                        positions.Add(GetSlotAnchoredPosition(slotIndex));
-                    }
                     pathLines[i].gameObject.SetActive(true);
-                    pathLines[i].SetPath(positions);
+                    pathLines[i].SetPath(BuildWaypoints(moves[i]));
                 }
                 else
                 {
                     pathLines[i].gameObject.SetActive(false);
                 }
             }
+        }
+
+        // 슬롯 좌표 목록을 만든 뒤, 부분 구간(리다이렉트 직후 연속 좌표, 기획 21번 §2)이 있으면 그
+        // 지점 하나만 정확한 위치로 치환한다 - SetPathLines/SetTravelerIcons가 공유한다.
+        private List<Vector2> BuildWaypoints(FormationMovePathVisual move)
+        {
+            var positions = new List<Vector2>(move.PathSlotIndices.Count);
+            foreach (var slotIndex in move.PathSlotIndices)
+            {
+                positions.Add(GetSlotAnchoredPosition(slotIndex));
+            }
+            FormationPathInterpolation.ApplyPartialSegment(positions, move.PartialSegmentIndex, move.PartialSegmentWeight);
+            return positions;
         }
 
         // 경로 위를 실시간으로 이동하는 유닛 아이콘을 그린다(기획 20번 §3.3) - 반드시
@@ -226,16 +239,15 @@ namespace Game.Core
                 if (i < moves.Count)
                 {
                     var move = moves[i];
-                    var positions = new List<Vector2>(move.PathSlotIndices.Count);
-                    foreach (var slotIndex in move.PathSlotIndices)
-                    {
-                        positions.Add(GetSlotAnchoredPosition(slotIndex));
-                    }
+                    var positions = BuildWaypoints(move);
+                    // 대각선 구간(√2배, 설계 26번 §10)이 섞일 수 있어 균등 보간이 아니라 구간별
+                    // 실제 비용 배열로 보간한다.
+                    var weights = FormationPathFinder.ComputeSegmentWeights(move.PathSlotIndices, columnCount, move.PartialSegmentIndex, move.PartialSegmentWeight);
                     var traveler = travelerIcons[i];
                     traveler.gameObject.SetActive(true);
                     traveler.sprite = move.Icon;
                     traveler.enabled = move.Icon != null;
-                    ((RectTransform)traveler.transform).anchoredPosition = FormationPathInterpolation.Evaluate(positions, move.Progress01);
+                    ((RectTransform)traveler.transform).anchoredPosition = FormationPathInterpolation.Evaluate(positions, move.Progress01, weights);
                 }
                 else
                 {

@@ -13,12 +13,18 @@ namespace Game.Core
         public IReadOnlyList<int> PathSlotIndices { get; }
         public float Progress01 { get; }
         public Sprite Icon { get; }
+        // FormationActivity.PartialSegmentIndex/Weight를 그대로 실어 나른다(기획 21번, 설계 26번 §2) -
+        // 기본값(-1/1)은 "부분 구간 없음"(일반 이동)과 동일하게 동작한다.
+        public int PartialSegmentIndex { get; }
+        public float PartialSegmentWeight { get; }
 
-        public FormationMovePathVisual(IReadOnlyList<int> pathSlotIndices, float progress01, Sprite icon)
+        public FormationMovePathVisual(IReadOnlyList<int> pathSlotIndices, float progress01, Sprite icon, int partialSegmentIndex = -1, float partialSegmentWeight = 1f)
         {
             PathSlotIndices = pathSlotIndices;
             Progress01 = progress01;
             Icon = icon;
+            PartialSegmentIndex = partialSegmentIndex;
+            PartialSegmentWeight = partialSegmentWeight;
         }
     }
 }

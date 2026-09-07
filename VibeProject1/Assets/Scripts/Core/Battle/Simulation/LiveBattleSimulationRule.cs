@@ -329,7 +329,13 @@ namespace Game.Core
                 {
                     waypoints.Add(FieldPositionLayout.ComputeAllyPosition(slotIndex % layout.ColumnCount, slotIndex / layout.ColumnCount, layout.ColumnCount));
                 }
-                return FormationPathInterpolation.Evaluate(waypoints, activity.Progress01);
+                // 도착 고스트로 중도 수정된 이동은 부분 구간(연속 좌표)을 가질 수 있다(기획 21번,
+                // 설계 26번 §2) - UI 쪽(FormationGridView.BuildWaypoints)과 동일하게 반영해야 인카운터
+                // 중단 지점이 화면에 보이던 위치와 어긋나지 않는다. 대각선 구간(√2배, 설계 26번 §10)이
+                // 섞일 수 있어 균등 보간이 아니라 구간별 실제 비용 배열로 보간한다.
+                FormationPathInterpolation.ApplyPartialSegment(waypoints, activity.PartialSegmentIndex, activity.PartialSegmentWeight);
+                var weights = FormationPathFinder.ComputeSegmentWeights(activity.PathSlotIndices, layout.ColumnCount, activity.PartialSegmentIndex, activity.PartialSegmentWeight);
+                return FormationPathInterpolation.Evaluate(waypoints, activity.Progress01, weights);
             }
 
             return FieldPositionLayout.ComputeAllyPosition(column, row, layout.ColumnCount);

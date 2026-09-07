@@ -20,6 +20,9 @@ namespace Game.Core
         public IFormationUnit DraggedUnit { get; private set; }
         public int? DraggedFromSlot { get; private set; }
         public bool DropHandled { get; private set; }
+        // 이동 중인 활동의 도착 고스트를 드래그하는 세 번째 드래그 종류(기획 21번, 설계 26번 §5.4) -
+        // DraggedFromSlot==null인 팔레트 드래그와 구분하기 위한 별도 플래그.
+        public bool IsRedirect { get; private set; }
 
         public void Rebind(FormationUnitIconView dragGhostPrefab, Canvas rootCanvas)
         {
@@ -37,19 +40,32 @@ namespace Game.Core
             DraggedUnit = null;
             DraggedFromSlot = null;
             DropHandled = false;
+            IsRedirect = false;
         }
 
-        public void BeginFromPalette(IFormationUnit unit, PointerEventData eventData) => BeginDrag(unit, null, eventData);
+        public void BeginFromPalette(IFormationUnit unit, PointerEventData eventData) => BeginDrag(unit, null, eventData, isRedirect: false);
 
         // 슬롯 인덱스가 가리키는 유닛이 무엇인지는 더 이상 이 클래스가 조회하지 않는다 - 호출자가
         // 이미 해석한 IFormationUnit을 그대로 넘긴다(레이아웃 조회 책임을 호출자에게 넘김).
-        public void BeginFromGrid(IFormationUnit unit, int originSlotIndex, PointerEventData eventData) => BeginDrag(unit, originSlotIndex, eventData);
+        public void BeginFromGrid(IFormationUnit unit, int originSlotIndex, PointerEventData eventData) => BeginDrag(unit, originSlotIndex, eventData, isRedirect: false);
 
-        private void BeginDrag(IFormationUnit unit, int? originSlotIndex, PointerEventData eventData)
+        // 도착 고스트 드래그 시작(기획 21번) - 픽업할 "슬롯"이 없으므로 DraggedFromSlot은 null로
+        // 두고 IsRedirect로 팔레트 드래그와 구분한다.
+        public void BeginRedirect(IFormationUnit unit, PointerEventData eventData) => BeginDrag(unit, null, eventData, isRedirect: true);
+
+        // 이동 중인 유닛의 "출발 슬롯" 아이콘을 집어서 시작하는 재조정 드래그(기획 21번, 2026-09-07
+        // 예외처리 확정) - 도착 고스트 드래그와 달리 실제로 픽업한 그리드 슬롯이 있으므로
+        // DraggedFromSlot을 채워 아이콘 숨김/복원 등 기존 그리드 드래그 UX를 그대로 재사용하면서도
+        // IsRedirect=true로 표시해 드롭/취소 처리는 재조정 규칙(HandleRedirectMove, 빈 곳 드롭=유지)을
+        // 따르게 한다.
+        public void BeginRedirectFromGrid(IFormationUnit unit, int originSlotIndex, PointerEventData eventData) => BeginDrag(unit, originSlotIndex, eventData, isRedirect: true);
+
+        private void BeginDrag(IFormationUnit unit, int? originSlotIndex, PointerEventData eventData, bool isRedirect)
         {
             DraggedUnit = unit;
             DraggedFromSlot = originSlotIndex;
             DropHandled = false;
+            IsRedirect = isRedirect;
 
             if (dragGhost == null && dragGhostPrefab != null && rootCanvas != null)
             {
@@ -92,6 +108,7 @@ namespace Game.Core
             DraggedUnit = null;
             DraggedFromSlot = null;
             DropHandled = false;
+            IsRedirect = false;
             return snapshot;
         }
     }

@@ -127,6 +127,19 @@ namespace Game.Core
             panelRoot.SetActive(false);
         }
 
+        // 지금 도착 고스트를 드래그 중인 유닛의 활동이 백그라운드에서 완료/취소됐다면(드래그를 놓지
+        // 않은 채 목적지에 도착하는 경우 등) 드래그 상태를 함께 정리한다 - 오버레이 자체는 다음
+        // RequestRefresh에서 사라지지만, 드래그 고스트는 별도 오브젝트라 그것만으로는 지워지지 않고
+        // 마우스 커서를 계속 따라다닌다(실전 확인, 2026-09-07). 해당 유닛을 드래그하는 중이 아니면
+        // 아무 일도 하지 않는다.
+        public void CancelDragIfRedirectingUnit(string unitId)
+        {
+            if (dragCoordinator.IsRedirect && dragCoordinator.DraggedUnit?.Id == unitId)
+            {
+                dragCoordinator.CancelActiveDrag();
+            }
+        }
+
         // 핸들러가 백그라운드에서 상태를 바꿨을 때(Field 활동 완료/취소 등, Docs/설계/25번 §3.4) 다시
         // 그리라고 요청한다 - 패널이 닫혀 있으면 아무 것도 하지 않는다(다시 열 때 Open()이 최신
         // 상태를 자연히 반영한다).
@@ -169,12 +182,12 @@ namespace Game.Core
                     overlays.Add(new FormationActivityOverlayVisual(activity.OriginSlotIndex, activity, unit));
                     // 이동 중인 유닛 아이콘이 경로 위를 실시간으로 지나가도록(기획 20번 §3.3) 진행률과
                     // 아이콘을 함께 넘긴다 - 정적인 출발/도착 오버레이(위 overlays)와는 별개다.
-                    movePaths.Add(new FormationMovePathVisual(activity.PathSlotIndices, activity.Progress01, unit?.Icon));
+                    movePaths.Add(new FormationMovePathVisual(activity.PathSlotIndices, activity.Progress01, unit?.Icon, activity.PartialSegmentIndex, activity.PartialSegmentWeight));
                 }
             }
 
             gridView.SetPathLines(movePaths);
-            gridView.SetActivityOverlays(overlays);
+            gridView.SetActivityOverlays(overlays, HandleActivityGhostBeginDrag, HandleIconDrag, HandleActivityGhostEndDrag);
             gridView.SetTravelerIcons(movePaths);
         }
 
@@ -316,10 +329,50 @@ namespace Game.Core
                 return;
             }
 
+            // 이동 중인 유닛은 완료 전까지 FormationLayout 상 출발 슬롯을 계속 점유한 것으로 기록돼
+            // (설계 25번 §3.2) 그 슬롯의 아이콘이 평범한 배치 아이콘처럼 집힌다. 이 경우 일반 그리드
+            // 이동으로 처리하면 활동이 취소+재시작돼 출발지로 순간이동한 뒤 처음부터 다시 이동하는
+            // 것처럼 보이는 버그가 있었다(실전 확인, 2026-09-07) - 도착 고스트를 드래그한 것과 동일한
+            // 목적지 재조정으로 처리한다.
+            if (IsMovingAwayFrom(originSlotIndex, unitId))
+            {
+                dragCoordinator.BeginRedirectFromGrid(unit, originSlotIndex, eventData);
+                return;
+            }
+
             dragCoordinator.BeginFromGrid(unit, originSlotIndex, eventData);
         }
 
+        private bool IsMovingAwayFrom(int slotIndex, string unitId)
+        {
+            foreach (var activity in handler.GetActiveActivities())
+            {
+                if (activity.UnitId == unitId && activity.Kind == FormationActivityKind.Moving && activity.OriginSlotIndex == slotIndex)
+                {
+                    return true;
+                }
+            }
+            return false;
+        }
+
         private void HandleIconDrag(PointerEventData eventData) => dragCoordinator.UpdateGhostPosition(eventData);
+
+        // 도착 고스트 드래그 시작(기획 21번, 설계 26번 §5.5) - unitId는 FormationActivityOverlayView가
+        // 이미 리다이렉트 가능한 마크일 때만 넘겨준다(FormationActivityOverlayVisual.IsRedirectableTarget).
+        private void HandleActivityGhostBeginDrag(string unitId, PointerEventData eventData)
+        {
+            if (string.IsNullOrEmpty(unitId) || !unitsById.TryGetValue(unitId, out var unit))
+            {
+                return;
+            }
+
+            dragCoordinator.BeginRedirect(unit, eventData);
+        }
+
+        // 슬롯에 드롭됐다면 HandleSlotDropped가 이미 handler.HandleRedirectMove를 호출했다 - 여기서는
+        // 드래그 상태만 정리한다. 빈 곳에 드롭해도(취소) 진행 중이던 이동 자체는 그대로 유지되므로
+        // (유닛 아이콘 드래그의 "빈 곳=제거" 규칙과 다르다) 슬롯/팔레트를 다시 그릴 필요가 없다.
+        private void HandleActivityGhostEndDrag(PointerEventData eventData) => dragCoordinator.EndDrag();
 
         private void HandleSlotDropped(int targetSlotIndex)
         {
@@ -330,6 +383,15 @@ namespace Game.Core
             }
 
             dragCoordinator.MarkDropHandled();
+
+            // 도착 고스트 드래그(기획 21번) - 픽업한 슬롯이 없어 아래 "그리드 슬롯→슬롯" 분기와
+            // 겹치지 않으므로 가장 먼저 처리한다. 화면 갱신은 여기서 하지 않는다 - 다음 프레임
+            // TickActivityOverlays()가 새 목적지 위치로 자연히 다시 그린다.
+            if (dragCoordinator.IsRedirect)
+            {
+                handler.HandleRedirectMove(draggedUnit.Id, targetSlotIndex);
+                return;
+            }
 
             if (dragCoordinator.DraggedFromSlot is { } sourceIndex)
             {
@@ -353,9 +415,14 @@ namespace Game.Core
 
         private void HandleIconEndDrag(PointerEventData eventData)
         {
+            // EndDrag()가 상태를 리셋하며 IsRedirect도 false로 되돌리므로 리셋 전에 먼저 읽어둔다.
+            var wasRedirect = dragCoordinator.IsRedirect;
             var (unit, fromSlot, wasHandled) = dragCoordinator.EndDrag();
 
-            if (!wasHandled && fromSlot.HasValue && unit != null)
+            // 출발 슬롯에서 집은 재조정 드래그(HandleGridIconBeginDrag의 예외처리)는 빈 곳에
+            // 드롭해도(취소) 진행 중이던 이동을 제거하지 않는다 - 도착 고스트 드래그
+            // (HandleActivityGhostEndDrag)와 동일한 규칙.
+            if (!wasRedirect && !wasHandled && fromSlot.HasValue && unit != null)
             {
                 // 타일/팔레트가 아닌 곳에 드롭 = 배치 취소/제거(기획 20번 §3.4).
                 handler.HandleRemove(unit.Id, fromSlot.Value);

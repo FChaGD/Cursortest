@@ -1,5 +1,7 @@
+using System;
 using TMPro;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace Game.Core
@@ -10,24 +12,67 @@ namespace Game.Core
     /// 비활성). FormationSlotView의 자식이 아니라 FormationGridView가 slotContent 아래 별도
     /// 풀(get-or-create)로 관리한다 - 렌더 순서(슬롯 배경 < 경로선 < 이 마크 < 이동 아이콘, 실전
     /// 확인) 때문에 슬롯 자식으로 두면 형제 인덱스를 독립적으로 강제할 수 없었다.
+    /// 이동 중인 활동의 "도착" 마크에 한해 드래그로 목적지를 바꿀 수 있다(기획 21번, 설계 26번
+    /// §5.2) - FormationUnitIconView와 동일하게 실제 판단은 하지 않고 델리게이트에 그대로
+    /// 위임한다. 리다이렉트 불가능한 마크(출발/배치)는 Bind에서 델리게이트가 null로 들어와
+    /// 드래그 입력을 그냥 무시한다(raycastTarget도 꺼서 아래 슬롯 아이콘의 입력을 가리지 않는다).
     /// </summary>
-    public class FormationActivityOverlayView : MonoBehaviour
+    public class FormationActivityOverlayView : MonoBehaviour, IBeginDragHandler, IDragHandler, IEndDragHandler
     {
         [SerializeField] private Image iconImage;
         [SerializeField] private TMP_Text remainingSecondsText;
 
-        public void Bind(Sprite icon, float remainingSeconds)
+        private Action<string, PointerEventData> onBeginDrag;
+        private Action<PointerEventData> onDrag;
+        private Action<PointerEventData> onEndDrag;
+        private string redirectUnitId;
+
+        public void Bind(Sprite icon, float remainingSeconds, bool isRedirectable = false, string unitId = null,
+            Action<string, PointerEventData> beginDragHandler = null, Action<PointerEventData> dragHandler = null, Action<PointerEventData> endDragHandler = null,
+            bool showRemainingSeconds = true)
         {
             if (iconImage != null)
             {
                 iconImage.sprite = icon;
                 iconImage.enabled = icon != null;
+                iconImage.raycastTarget = isRedirectable;
             }
 
             if (remainingSecondsText != null)
             {
-                remainingSecondsText.text = Mathf.CeilToInt(Mathf.Max(0f, remainingSeconds)) + "초";
+                // 이동 중인 활동은 출발/도착 마크 둘 다 같은 활동의 잔여시간을 공유하므로, 도착
+                // 쪽에만 표시한다(showRemainingSeconds, 2026-09-07 사용자 확정 - 중복 표기 정리).
+                remainingSecondsText.gameObject.SetActive(showRemainingSeconds);
+                if (showRemainingSeconds)
+                {
+                    remainingSecondsText.text = FormatRemainingSeconds(remainingSeconds);
+                }
             }
+
+            redirectUnitId = isRedirectable ? unitId : null;
+            onBeginDrag = isRedirectable ? beginDragHandler : null;
+            onDrag = isRedirectable ? dragHandler : null;
+            onEndDrag = isRedirectable ? endDragHandler : null;
         }
+
+        // 1분 미만은 ss, 1분 이상은 mm:ss(사용자 확정, 2026-09-07) - 초 단위 접미사("초") 없이
+        // 시계 표기 그대로 보여준다.
+        private static string FormatRemainingSeconds(float remainingSeconds)
+        {
+            var totalSeconds = Mathf.CeilToInt(Mathf.Max(0f, remainingSeconds));
+            if (totalSeconds < 60)
+            {
+                return totalSeconds.ToString("00");
+            }
+            var minutes = totalSeconds / 60;
+            var seconds = totalSeconds % 60;
+            return $"{minutes}:{seconds:00}";
+        }
+
+        public void OnBeginDrag(PointerEventData eventData) => onBeginDrag?.Invoke(redirectUnitId, eventData);
+
+        public void OnDrag(PointerEventData eventData) => onDrag?.Invoke(eventData);
+
+        public void OnEndDrag(PointerEventData eventData) => onEndDrag?.Invoke(eventData);
     }
 }

@@ -27,6 +27,11 @@ namespace Game.Core
         // 그리드 밖으로 드래그해 배치 취소, 혹은 명시적 제거.
         void HandleRemove(string unitId, int slotIndex);
 
+        // 이동 중인 유닛의 도착 고스트를 드래그해 목적지를 바꾼다(기획 21번, 설계 26번 §4) - Hub는
+        // 진행 활동이 없어(GetActiveActivities가 항상 빈 목록) 이 경로가 호출될 일이 없으므로 빈
+        // 구현으로 둔다(IsUnitReserved Hub 스텁과 동일 패턴).
+        void HandleRedirectMove(string unitId, int newTargetSlotIndex);
+
         // 슬롯 오버레이/경로선 표시용(설계 25번 §5) - Hub는 항상 빈 목록, Field는
         // IFieldFormationActivityRepository.ActiveActivities를 그대로 반환한다. 유닛 아이콘 해석은
         // FormationGridEditor가 이미 갖고 있는 로스터 캐시(unitsById)로 충분해 별도 메서드가 없다.

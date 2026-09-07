@@ -21,6 +21,13 @@ namespace Game.Core
         void BeginAdd(string unitId, int targetSlotIndex, float requiredSeconds);
         void BeginMove(string unitId, int originSlotIndex, int targetSlotIndex, IReadOnlyList<int> pathSlotIndices, float requiredSeconds);
 
+        // 이동 중인 유닛의 목적지를 실시간으로 바꾼다(기획 21번, 설계 26번 §3) - Cancel+BeginMove와
+        // 달리 elapsedSeconds를 그대로 이어받아 이미 진행된 시간을 잃지 않는다. OriginSlotIndex는
+        // 건드리지 않는다(최초 출발점 유지). partialSegmentIndex/Weight는 FormationActivity의 같은
+        // 이름 프로퍼티에 그대로 전달된다(연속 좌표 접합, §2). 대상 활동이 없거나 Moving이 아니면
+        // 아무 것도 하지 않는다.
+        void RedirectMove(string unitId, int newTargetSlotIndex, IReadOnlyList<int> pathSlotIndices, float requiredSeconds, float elapsedSeconds, int partialSegmentIndex, float partialSegmentWeight);
+
         // 기획 20번 §3.4 - 진행 중 제거. 즉시 취소, 로스터 복귀는 호출자(FieldFormationPanel)가
         // OnActivityCancelled를 받아 처리한다(이 저장소는 로스터를 모른다, SRP).
         void Cancel(string unitId);
