@@ -39,6 +39,8 @@ namespace Game.Core
             // TODO: TacticsPanel, HUDPanel, ResultPanel 등 추가 IUIPanel 구현체 연결 - 각 하위 컴포넌트 설계 후 구현
         }
 
+        public event Action<bool> OnAnyPanelOpenChanged;
+
         public void RegisterPanel(IUIPanel panel)
         {
             panelsById[panel.PanelId] = panel;
@@ -59,6 +61,7 @@ namespace Game.Core
             }
 
             panel.Open();
+            OnAnyPanelOpenChanged?.Invoke(true);
         }
 
         public void Close(string panelId)
@@ -74,7 +77,11 @@ namespace Game.Core
             var returnTarget = navigation.ResolveReturnTarget(panelId);
             if (returnTarget != null)
             {
-                Open(returnTarget);
+                Open(returnTarget); // Open()이 OnAnyPanelOpenChanged(true)를 다시 통지한다(이미 true라 무해).
+            }
+            else
+            {
+                OnAnyPanelOpenChanged?.Invoke(false);
             }
         }
 

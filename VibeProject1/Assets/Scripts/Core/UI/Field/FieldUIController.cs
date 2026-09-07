@@ -101,8 +101,7 @@ namespace Game.Core
 
             // 화면이 완전히 드러나기 전까지는 정비창/방향성 지시 재호출을 막는다(사용자 확정) -
             // HandleSceneRevealed에서 다시 켠다. 전환 없이 로드된 경우(최초 진입 등)엔 사실상 바로 다시 켜진다.
-            formationButton.interactable = false;
-            tacticsButton.interactable = false;
+            SetTopLevelButtonsInteractable(false);
             sceneRevealSignal.SceneRevealed -= HandleSceneRevealed;
             sceneRevealSignal.SceneRevealed += HandleSceneRevealed;
 
@@ -121,7 +120,7 @@ namespace Game.Core
             flowCoordinator ??= new FieldEncounterFlowCoordinator();
             flowCoordinator.Bind(uiManager, sessionState, encounterManager, battleController, battleResultSource, defeatConsequenceSource, gameManager, fieldActivityRepository);
             var cameraController = new FieldCameraController(this, movementViewRoot, battleViewRoot, battleWorldRoot.gameObject, transitionCurtain);
-            flowCoordinator.RebindViews(this, cameraController, warningView, resultPopupView, transitionCurtain);
+            flowCoordinator.RebindViews(this, this, cameraController, warningView, resultPopupView, transitionCurtain);
 
             // battleSimulationEvents도 Bootstrap 상주 영속 객체(BattleManager)라 같은 이유로
             // viewPresenter를 재생성하지 않는다 - Bind(이벤트 구독)는 최초 1회, RebindViews(이번 씬의
@@ -141,10 +140,22 @@ namespace Game.Core
                 return;
             }
 
-            formationButton.interactable = true;
-            tacticsButton.interactable = true;
+            SetTopLevelButtonsInteractable(true);
             unitConditionRepository?.ResetAllToFull(); // 상행 시작 = 전원 만피로 출발(기획 13번 §4-1, 설계 15번 §4)
             sessionState.Begin();
+        }
+
+        public void SetTopLevelButtonsInteractable(bool interactable)
+        {
+            if (formationButton != null)
+            {
+                formationButton.interactable = interactable;
+            }
+
+            if (tacticsButton != null)
+            {
+                tacticsButton.interactable = interactable;
+            }
         }
 
         private void HandleProgressChanged(float progress)

@@ -118,13 +118,17 @@ namespace Game.Core.Editor
             so.ApplyModifiedProperties();
         }
 
+        // Hub 씬의 "배치" 버튼과 같은 역할(정비창 열기)이라, 모양도 그것과 맞춘다(사용자 확정,
+        // 2026-09-07) - 이전엔 다른 상시 노출 버튼들처럼 평면 색상 사각형이었으나, Hub의 배치 버튼은
+        // Unity 기본 UI 스프라이트를 쓰는 씬 원본 버튼이라 EditorUIBuilder.EnsureStandardButtonImage로
+        // 그 모양을 재현해 통일한다.
         private static void BuildFormationButton(Transform parent)
         {
             var go = EditorUIBuilder.GetOrCreateUIObject(parent, "FormationButton");
             EditorUIBuilder.SetAnchors(go.GetComponent<RectTransform>(), new Vector2(0.02f, 0.02f), new Vector2(0.14f, 0.10f));
-            EditorUIBuilder.EnsureImage(go, new Color(0.75f, 0.87f, 1f, 1f));
+            EditorUIBuilder.EnsureStandardButtonImage(go);
             EditorUIBuilder.EnsureButton(go);
-            EditorUIBuilder.EnsureLabel(go.transform, "정비창");
+            EditorUIBuilder.EnsureLabel(go.transform, "상단 배치", autoSize: true, minFontSize: 18f, maxFontSize: 30f);
             EditorUIBuilder.EnsureMarker(go, FieldUIElementIds.FormationButton);
         }
 
@@ -136,7 +140,7 @@ namespace Game.Core.Editor
             EditorUIBuilder.SetAnchors(go.GetComponent<RectTransform>(), new Vector2(0.02f, 0.12f), new Vector2(0.14f, 0.20f));
             EditorUIBuilder.EnsureImage(go, new Color(0.85f, 0.75f, 0.95f, 1f));
             EditorUIBuilder.EnsureButton(go);
-            EditorUIBuilder.EnsureLabel(go.transform, "방향성 지시");
+            EditorUIBuilder.EnsureLabel(go.transform, "방향성 지시", autoSize: true, minFontSize: 18f, maxFontSize: 30f);
             EditorUIBuilder.EnsureMarker(go, FieldUIElementIds.TacticsButton);
         }
 

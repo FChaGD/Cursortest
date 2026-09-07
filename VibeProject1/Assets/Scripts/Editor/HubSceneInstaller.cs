@@ -85,7 +85,7 @@ namespace Game.Core.Editor
             EditorUIBuilder.SetAnchors(go.GetComponent<RectTransform>(), new Vector2(0.1052f, 0.5493f), new Vector2(0.2406f, 0.6648f));
             EditorUIBuilder.EnsureImage(go, new Color(0.85f, 0.75f, 0.95f, 1f));
             EditorUIBuilder.EnsureButton(go);
-            EditorUIBuilder.EnsureLabel(go.transform, "방향성 지시");
+            EditorUIBuilder.EnsureLabel(go.transform, "방향성 지시", autoSize: true, minFontSize: 18f, maxFontSize: 30f);
             EditorUIBuilder.EnsureMarker(go, HubUIElementIds.TacticsButton);
 
             // 상시 노출 버튼은 배치/상행준비 모달 패널보다 항상 앞쪽 형제여야 한다 - 늦은 형제일수록
@@ -454,6 +454,8 @@ namespace Game.Core.Editor
             ReparentIfFound(sceneUIRoot, HubUIElementIds.Background, contentRootGo.transform);
             ReparentIfFound(sceneUIRoot, HubUIElementIds.DepartureButton, contentRootGo.transform);
             ReparentIfFound(sceneUIRoot, HubUIElementIds.FormationButton, contentRootGo.transform);
+            // Field의 같은 역할 버튼(정비창)과 표기를 통일한다(사용자 확정, 2026-09-07).
+            SetLabelText(sceneUIRoot, HubUIElementIds.FormationButton, "상단 배치", minFontSize: 18f, maxFontSize: 30f);
 
             return contentRootGo.transform;
         }
@@ -472,16 +474,7 @@ namespace Game.Core.Editor
 
         private static void ReparentIfFound(SceneUIRoot sceneUIRoot, string id, Transform newParent)
         {
-            UIElementMarker found = null;
-            foreach (var marker in sceneUIRoot.GetComponentsInChildren<UIElementMarker>(true))
-            {
-                if (marker.Id == id)
-                {
-                    found = marker;
-                    break;
-                }
-            }
-
+            var found = FindMarker(sceneUIRoot, id);
             if (found == null)
             {
                 Debug.LogWarning($"Hub UI에서 '{id}' 요소를 찾을 수 없어 재배치를 건너뛴다. UIElementMarker가 부착되어 있는지 확인하라.");
@@ -492,6 +485,46 @@ namespace Game.Core.Editor
             {
                 Undo.SetTransformParent(found.transform, newParent, $"Reparent {id}");
             }
+        }
+
+        // 씬에 원래부터 있던(코드로 만들어지지 않은) 버튼의 라벨 텍스트를 갱신할 때 쓴다 - "배치"
+        // 버튼처럼 EditorUIBuilder.EnsureLabel로 만들어진 게 아니라 자식 이름이 "Label"이 아니므로,
+        // EnsureLabel을 그대로 호출하면 새 라벨이 중복 생성된다. 대신 마커로 찾은 뒤 자식 TMP
+        // 컴포넌트를 직접 갱신한다. 폰트 크기도 자동 축소(minFontSize~maxFontSize)로 맞춘다 - 인스펙터에서
+        // 먼저 확정한 값(사용자 확정, 2026-09-07: 18~30)을 여기로 옮겨 재실행해도 유지되게 한다
+        // (EditorUIBuilder.EnsureLabel의 autoSize 오버로드와 같은 값 의미).
+        private static void SetLabelText(SceneUIRoot sceneUIRoot, string id, string text, float minFontSize, float maxFontSize)
+        {
+            var found = FindMarker(sceneUIRoot, id);
+            if (found == null)
+            {
+                Debug.LogWarning($"Hub UI에서 '{id}' 요소를 찾을 수 없어 라벨 텍스트를 갱신하지 못했다.");
+                return;
+            }
+
+            var label = found.GetComponentInChildren<TextMeshProUGUI>(true);
+            if (label == null)
+            {
+                Debug.LogWarning($"'{id}' 요소 밑에서 TextMeshProUGUI 라벨을 찾을 수 없어 텍스트를 갱신하지 못했다.");
+                return;
+            }
+
+            label.text = text;
+            label.enableAutoSizing = true;
+            label.fontSizeMin = minFontSize;
+            label.fontSizeMax = maxFontSize;
+        }
+
+        private static UIElementMarker FindMarker(SceneUIRoot sceneUIRoot, string id)
+        {
+            foreach (var marker in sceneUIRoot.GetComponentsInChildren<UIElementMarker>(true))
+            {
+                if (marker.Id == id)
+                {
+                    return marker;
+                }
+            }
+            return null;
         }
     }
 }

@@ -166,6 +166,18 @@ namespace Game.Core.Editor
             return image;
         }
 
+        // Hub 씬의 "배치" 버튼(HubUIElementIds.FormationButton)이 처음부터 갖고 있던 모양 - 색만 다른
+        // 평면 사각형(EnsureImage)이 아니라 Unity 기본 UI 스프라이트(둥근 테두리, Sliced)를 쓴다.
+        // 그 버튼은 코드로 만들어진 게 아니라 씬에 원래 있던 것이라 이 값을 코드로 옮길 곳이 없었는데,
+        // Field의 같은 역할 버튼(정비창)을 여기 맞추기 위해(사용자 확정, 2026-09-07) 이 헬퍼로 뽑았다.
+        public static Image EnsureStandardButtonImage(GameObject go)
+        {
+            var image = EnsureImage(go, Color.white);
+            image.sprite = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
+            image.type = Image.Type.Sliced;
+            return image;
+        }
+
         public static Button EnsureButton(GameObject go)
         {
             var button = GetOrAddComponent<Button>(go);
@@ -318,15 +330,31 @@ namespace Game.Core.Editor
         private const float DropdownFontSizeMax = 32f;
 
         public static TMP_Text EnsureLabel(Transform parent, string text)
+            => EnsureLabel(parent, text, autoSize: false, minFontSize: 18f, maxFontSize: 24f);
+
+        // autoSize=true면 텍스트가 상자 폭에 맞춰 minFontSize~maxFontSize 사이로 자동 축소된다 -
+        // 상시 노출 액션 버튼(배치/정비창, 방향성 지시)처럼 좁은 버튼 안에 라벨이 잘리지 않아야 하는
+        // 곳에 쓴다. 이 값들은 인스펙터에서 먼저 확정한 뒤(사용자 확정, 2026-09-07: 18~30) 여기로
+        // 옮겨 재실행해도 유지되게 한 것 - 새 버튼에도 같은 패턴을 쓰려면 이 오버로드를 그대로 호출한다.
+        public static TMP_Text EnsureLabel(Transform parent, string text, bool autoSize, float minFontSize, float maxFontSize)
         {
             var labelGo = GetOrCreateUIObject(parent, "Label");
             SetStretch(labelGo.GetComponent<RectTransform>());
             var label = GetOrAddComponent<TextMeshProUGUI>(labelGo);
             label.text = text;
             label.alignment = TextAlignmentOptions.Center;
-            label.fontSize = 24;
             label.color = Color.black;
             label.raycastTarget = false;
+            label.enableAutoSizing = autoSize;
+            if (autoSize)
+            {
+                label.fontSizeMin = minFontSize;
+                label.fontSizeMax = maxFontSize;
+            }
+            else
+            {
+                label.fontSize = maxFontSize;
+            }
             return label;
         }
 

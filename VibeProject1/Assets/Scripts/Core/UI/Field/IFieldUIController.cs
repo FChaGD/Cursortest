@@ -14,5 +14,13 @@ namespace Game.Core
 
         /// <summary>Hub↔Field 씬 전환 연출이 슬라이드시킬 대상. RegisterFieldUI 이후에만 유효하다.</summary>
         RectTransform MovementViewRoot { get; }
+
+        /// <summary>
+        /// 정비창/방향성 지시 재호출 버튼의 상호작용 가능 여부를 일괄 설정한다. 씬 전환 커튼(사용자
+        /// 확정) 외에, 인카운터~전투 진행 중에도 눌리면 안 되므로(사용자 확정, 2026-09-07)
+        /// FieldEncounterFlowCoordinator가 인카운터 발생 시 false, 이동 뷰 복귀 슬라이드 시작 직전에
+        /// true로 되돌리는 데 쓴다.
+        /// </summary>
+        void SetTopLevelButtonsInteractable(bool interactable);
     }
 }

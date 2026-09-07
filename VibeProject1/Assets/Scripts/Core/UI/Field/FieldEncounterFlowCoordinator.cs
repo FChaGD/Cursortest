@@ -27,6 +27,7 @@ namespace Game.Core
         private IFieldFormationActivityRepository fieldActivityRepository;
 
         private MonoBehaviour coroutineRunner;
+        private IFieldUIController fieldUIController;
         private FieldCameraController cameraController;
         private FieldEncounterWarningView warningView;
         private FieldResultPopupView resultPopupView;
@@ -58,9 +59,10 @@ namespace Game.Core
             eventsBound = true;
         }
 
-        public void RebindViews(MonoBehaviour coroutineRunner, FieldCameraController cameraController, FieldEncounterWarningView warningView, FieldResultPopupView resultPopupView, FieldTransitionCurtainView transitionCurtain)
+        public void RebindViews(MonoBehaviour coroutineRunner, IFieldUIController fieldUIController, FieldCameraController cameraController, FieldEncounterWarningView warningView, FieldResultPopupView resultPopupView, FieldTransitionCurtainView transitionCurtain)
         {
             this.coroutineRunner = coroutineRunner;
+            this.fieldUIController = fieldUIController;
             this.cameraController = cameraController;
             this.warningView = warningView;
             this.resultPopupView = resultPopupView;
@@ -74,6 +76,10 @@ namespace Game.Core
             uiManager.Close(UIPanelIds.Tactics);     // 같은 이유로 인카운터 발생 시 함께 닫는다 - 방향성 지시는
                                                       // Apply 버튼 없이 즉시 반영이라(TacticsPanel 요약 주석 참고)
                                                       // 닫아도 버려지는 변경이 없다
+            fieldUIController.SetTopLevelButtonsInteractable(false); // 인카운터~전투 진행 중에는 재호출 버튼도
+                                                      // 못 누르게 막는다(사용자 확정, 2026-09-07) - 이동 뷰로
+                                                      // 복귀하는 슬라이드 전환 직전(ShowResult/ShowDefeatConsequence의
+                                                      // Victory/Flee 케이스)에 다시 켠다.
             fieldActivityRepository?.PauseAll();     // Field 배치/이동 전부 일시정지(설계 25번 §8.1) -
                                                       // Adding은 전투 시작 시 LiveBattleSimulationRule.ResumeSimulation()이
                                                       // 다시 재개한다(§8.2), Moving은 전투 종료까지 계속 멈춰 있는다.
@@ -145,11 +151,14 @@ namespace Game.Core
                     // 끝난 뒤에 호출한다 - 전환 중에는 배치/이동 애니메이션이 보이지 않아야 하므로,
                     // 판정 즉시 재개하면 전환 애니메이션 도중 이미 진행된 이동이 뒤로 밀려 어색해진다(사용자 확정).
                     resultPopupView.Show("승리", "확인", onConfirm: () =>
+                    {
+                        fieldUIController.SetTopLevelButtonsInteractable(true); // 슬라이드 전환 시작 전에 되돌린다(사용자 확정).
                         cameraController.TransitionToMovement(onComplete: () =>
                         {
                             fieldActivityRepository?.ResumeAll();
                             sessionState.Resume();
-                        }));
+                        });
+                    });
                     break;
                 case BattleOutcome.Defeat:
                     ShowDefeatConsequence(defeatConsequenceSource.ResolveDefeatConsequence());
@@ -173,11 +182,14 @@ namespace Game.Core
                     // Victory와 동일한 흐름(이동 뷰 복귀 + 상행 재개, ResumeAll 타이밍도 동일하게
                     // 전환 슬라이드 완료 후) - §14.4에서 도주는 "상행 속행"으로 정했다.
                     resultPopupView.Show("패배 - 도주", "상행 속행", onConfirm: () =>
+                    {
+                        fieldUIController.SetTopLevelButtonsInteractable(true); // 슬라이드 전환 시작 전에 되돌린다(사용자 확정).
                         cameraController.TransitionToMovement(onComplete: () =>
                         {
                             fieldActivityRepository?.ResumeAll(); // 기획 20번 §3.2/§3.3 - 승리와 동일하게 재개
                             sessionState.Resume();
-                        }));
+                        });
+                    });
                     break;
                 case DefeatConsequence.Rout:
                     // 진행 중이던 배치/이동을 Hub 귀환 전에 즉시 완료 처리한다(기획 20번 §3.2/§3.3,

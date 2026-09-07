@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using UnityEngine;
 
@@ -25,6 +26,8 @@ namespace Game.Core
             // BattleTestController가 FormationPanel/TacticsPanel을 직접 등록한다.
         }
 
+        public event Action<bool> OnAnyPanelOpenChanged;
+
         public void RegisterPanel(IUIPanel panel)
         {
             panelsById[panel.PanelId] = panel;
@@ -45,6 +48,7 @@ namespace Game.Core
             }
 
             panel.Open();
+            OnAnyPanelOpenChanged?.Invoke(true);
         }
 
         public void Close(string panelId)
@@ -61,6 +65,10 @@ namespace Game.Core
             if (returnTarget != null)
             {
                 Open(returnTarget);
+            }
+            else
+            {
+                OnAnyPanelOpenChanged?.Invoke(false);
             }
         }
     }

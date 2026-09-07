@@ -24,9 +24,11 @@ namespace Game.Core
         private Button formationButton;
         private Button tacticsButton;
         private ISceneRevealSignal sceneRevealSignal;
+        private IUIManager uiManager;
 
         public void RegisterHubUI(IUIManager uiManager, ISceneRevealSignal sceneRevealSignal)
         {
+            this.uiManager = uiManager;
             this.sceneRevealSignal = sceneRevealSignal;
 
             var hubScene = SceneManager.GetSceneByName(SceneNames.Hub);
@@ -68,6 +70,13 @@ namespace Game.Core
             sceneRevealSignal.SceneRevealed -= HandleSceneRevealed;
             sceneRevealSignal.SceneRevealed += HandleSceneRevealed;
 
+            // 배치/방향성 지시/상행 준비 패널이 하나라도 열려있는 동안은 이 버튼들을 완전히 숨긴다 -
+            // 이전엔 인터랙터블만 안 건드려서, 패널이 열려도 버튼이 그대로 보이고 눌리기까지 했다
+            // (사용자 확정, 2026-09-07). 패널끼리 중첩 전환되는 동안(상행 준비→배치→복귀)에는 계속
+            // 숨김 상태가 유지되고, 최상위 패널까지 완전히 닫혀야 다시 나타난다(IUIManager.OnAnyPanelOpenChanged 참고).
+            uiManager.OnAnyPanelOpenChanged -= HandleAnyPanelOpenChanged;
+            uiManager.OnAnyPanelOpenChanged += HandleAnyPanelOpenChanged;
+
             ApplyBackground(sceneUIRoot);
         }
 
@@ -80,6 +89,8 @@ namespace Game.Core
 
             SetTopLevelButtonsInteractable(true);
         }
+
+        private void HandleAnyPanelOpenChanged(bool isAnyPanelOpen) => SetTopLevelButtonsVisible(!isAnyPanelOpen);
 
         private void SetTopLevelButtonsInteractable(bool interactable)
         {
@@ -96,6 +107,24 @@ namespace Game.Core
             if (tacticsButton != null)
             {
                 tacticsButton.interactable = interactable;
+            }
+        }
+
+        private void SetTopLevelButtonsVisible(bool visible)
+        {
+            if (departureButton != null)
+            {
+                departureButton.gameObject.SetActive(visible);
+            }
+
+            if (formationButton != null)
+            {
+                formationButton.gameObject.SetActive(visible);
+            }
+
+            if (tacticsButton != null)
+            {
+                tacticsButton.gameObject.SetActive(visible);
             }
         }
 
