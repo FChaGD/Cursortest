@@ -22,6 +22,9 @@ namespace Game.Core
         private IBattleController battleController;
         private IDefeatConsequenceSource defeatConsequenceSource;
         private IGameManager gameManager;
+        // Field 배치 시간(Docs/설계/25번 §8) 일시정지/재개/강제완료 연동 - 없으면(인스톨러 미실행)
+        // null-조건부 호출로 자연히 비활성화된다.
+        private IFieldFormationActivityRepository fieldActivityRepository;
 
         private MonoBehaviour coroutineRunner;
         private FieldCameraController cameraController;
@@ -36,13 +39,14 @@ namespace Game.Core
         private bool isTransitioning;
         private BattleResult? pendingResult;
 
-        public void Bind(IUIManager uiManager, ISessionState sessionState, IEncounterManager encounterManager, IBattleController battleController, IBattleResultSource battleResultSource, IDefeatConsequenceSource defeatConsequenceSource, IGameManager gameManager)
+        public void Bind(IUIManager uiManager, ISessionState sessionState, IEncounterManager encounterManager, IBattleController battleController, IBattleResultSource battleResultSource, IDefeatConsequenceSource defeatConsequenceSource, IGameManager gameManager, IFieldFormationActivityRepository fieldActivityRepository)
         {
             this.uiManager = uiManager;
             this.sessionState = sessionState;
             this.battleController = battleController;
             this.defeatConsequenceSource = defeatConsequenceSource;
             this.gameManager = gameManager;
+            this.fieldActivityRepository = fieldActivityRepository;
 
             if (eventsBound)
             {
@@ -70,6 +74,9 @@ namespace Game.Core
             uiManager.Close(UIPanelIds.Tactics);     // 같은 이유로 인카운터 발생 시 함께 닫는다 - 방향성 지시는
                                                       // Apply 버튼 없이 즉시 반영이라(TacticsPanel 요약 주석 참고)
                                                       // 닫아도 버려지는 변경이 없다
+            fieldActivityRepository?.PauseAll();     // Field 배치/이동 전부 일시정지(설계 25번 §8.1) -
+                                                      // Adding은 전투 시작 시 LiveBattleSimulationRule.ResumeSimulation()이
+                                                      // 다시 재개한다(§8.2), Moving은 전투 종료까지 계속 멈춰 있는다.
             isTransitioning = true;
             warningView.Show();
             coroutineRunner.StartCoroutine(TransitionAfterWarning());
@@ -134,8 +141,15 @@ namespace Game.Core
                 case BattleOutcome.Victory:
                     // TransitionToMovement의 onComplete 시점에는 isTransitioning=false, pendingResult=null
                     // 상태가 이미 확보돼 있다 - 별도 리셋 없이 다음 인카운터를 곧바로 처리할 수 있다.
+                    // ResumeAll(Moving까지 포함해 전부 재개, 설계 25번 §8.4)은 이동 뷰 전환 슬라이드가
+                    // 끝난 뒤에 호출한다 - 전환 중에는 배치/이동 애니메이션이 보이지 않아야 하므로,
+                    // 판정 즉시 재개하면 전환 애니메이션 도중 이미 진행된 이동이 뒤로 밀려 어색해진다(사용자 확정).
                     resultPopupView.Show("승리", "확인", onConfirm: () =>
-                        cameraController.TransitionToMovement(onComplete: sessionState.Resume));
+                        cameraController.TransitionToMovement(onComplete: () =>
+                        {
+                            fieldActivityRepository?.ResumeAll();
+                            sessionState.Resume();
+                        }));
                     break;
                 case BattleOutcome.Defeat:
                     ShowDefeatConsequence(defeatConsequenceSource.ResolveDefeatConsequence());
@@ -152,20 +166,30 @@ namespace Game.Core
             switch (consequence)
             {
                 case DefeatConsequence.Death:
+                    fieldActivityRepository?.ForceCompleteAll(); // 곧 Application.Quit이라 무의미하지만 일관성 위해 호출
                     resultPopupView.Show("패배 - 전멸", "플레이 종료", onConfirm: Application.Quit);
                     break;
                 case DefeatConsequence.Flee:
-                    // Victory와 동일한 흐름(이동 뷰 복귀 + 상행 재개) - §14.4에서 도주는 "상행 속행"으로 정했다.
+                    // Victory와 동일한 흐름(이동 뷰 복귀 + 상행 재개, ResumeAll 타이밍도 동일하게
+                    // 전환 슬라이드 완료 후) - §14.4에서 도주는 "상행 속행"으로 정했다.
                     resultPopupView.Show("패배 - 도주", "상행 속행", onConfirm: () =>
-                        cameraController.TransitionToMovement(onComplete: sessionState.Resume));
+                        cameraController.TransitionToMovement(onComplete: () =>
+                        {
+                            fieldActivityRepository?.ResumeAll(); // 기획 20번 §3.2/§3.3 - 승리와 동일하게 재개
+                            sessionState.Resume();
+                        }));
                     break;
                 case DefeatConsequence.Rout:
+                    // 진행 중이던 배치/이동을 Hub 귀환 전에 즉시 완료 처리한다(기획 20번 §3.2/§3.3,
+                    // 설계 25번 §8.4 - 도주를 제외한 패배는 전부 이 경로).
+                    fieldActivityRepository?.ForceCompleteAll();
                     resultPopupView.Show("패배 - 궤주", "귀환", onConfirm: () =>
                         gameManager.RequestSceneTransition(ContentSceneId.Hub));
                     break;
                 case DefeatConsequence.Captured:
                 default:
                     // 포로 콘텐츠 미구현(테스트 단계) - 확정되기 전까지 사망과 동일하게 처리한다.
+                    fieldActivityRepository?.ForceCompleteAll();
                     resultPopupView.Show("패배 - 포로", "플레이 종료", onConfirm: Application.Quit);
                     break;
             }

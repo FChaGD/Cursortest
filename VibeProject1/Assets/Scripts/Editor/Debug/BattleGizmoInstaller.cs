@@ -19,7 +19,7 @@ namespace Game.Core.Editor.DebugTools
     /// </summary>
     public static class BattleGizmoInstaller
     {
-        [MenuItem("Tools/Game/Debug/Install Battle Gizmos")]
+        [MenuItem("Tools/Game/Debug/Install/Battle Gizmos")]
         public static void InstallGizmos()
         {
             var battleManager = Object.FindFirstObjectByType<BattleManager>(FindObjectsInactive.Include);
@@ -37,7 +37,7 @@ namespace Game.Core.Editor.DebugTools
             Debug.Log("전투 디버그 기즈모 설치/동기화 완료. Ctrl+S로 씬을 저장했다.");
         }
 
-        [MenuItem("Tools/Game/Debug/Remove Battle Gizmos")]
+        [MenuItem("Tools/Game/Debug/Remove/Battle Gizmos")]
         public static void RemoveGizmos()
         {
             var battleManager = Object.FindFirstObjectByType<BattleManager>(FindObjectsInactive.Include);

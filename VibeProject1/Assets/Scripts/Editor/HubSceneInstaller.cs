@@ -66,9 +66,10 @@ namespace Game.Core.Editor
 
             EditorSceneManager.MarkSceneDirty(activeScene);
             Debug.Log("Hub Scene UI 생성/동기화 완료. 씬을 저장(Ctrl+S)해야 변경사항이 파일에 반영된다. "
-                + "FormationPanel.dragGhostPrefab에는 'Assets/Prefabs/UI/Formation/FormationUnitIcon.prefab'을, "
+                + "HubFormationPanel.dragGhostPrefab과 FieldFormationPanel.dragGhostPrefab 둘 다에 "
+                + "'Assets/Prefabs/UI/Formation/FormationUnitIcon.prefab'을, "
                 + $"TripPanel.debugCityMarkerPrefab에는 '{CityMarkerPrefabPath}', debugRoadLinePrefab에는 '{RoadLinePrefabPath}'를 "
-                + "수동으로 연결하라(FormationPanel/TripPanel은 Bootstrap 씬에 있어 이 도구가 직접 연결할 수 없다).");
+                + "수동으로 연결하라(HubFormationPanel/FieldFormationPanel/TripPanel은 Bootstrap 씬에 있어 이 도구가 직접 연결할 수 없다).");
         }
 
         // ==================== 배치(Formation) UI ====================
@@ -119,7 +120,10 @@ namespace Game.Core.Editor
             var slotPrefab = FormationUIBuilder.GetOrCreateSlotPrefab();
             var iconPrefab = FormationUIBuilder.GetOrCreateIconPrefab();
             var rowPrefab = FormationUIBuilder.GetOrCreateRowPrefab();
-            FormationUIBuilder.Build(contentRoot, slotPrefab, iconPrefab, rowPrefab);
+            var pathLinePrefab = FormationUIBuilder.GetOrCreatePathLinePrefab();
+            var travelerIconPrefab = FormationUIBuilder.GetOrCreateTravelerIconPrefab();
+            var activityOverlayPrefab = FormationUIBuilder.GetOrCreateActivityOverlayPrefab();
+            FormationUIBuilder.Build(contentRoot, slotPrefab, iconPrefab, rowPrefab, pathLinePrefab, travelerIconPrefab, activityOverlayPrefab, includeApplyButton: true);
         }
 
         // ==================== 상행 준비(Trip) UI ====================

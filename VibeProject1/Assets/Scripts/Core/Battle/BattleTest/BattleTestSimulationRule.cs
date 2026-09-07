@@ -81,6 +81,11 @@ namespace Game.Core
         private float fieldRadius;
 
         public event Action<BattleSimulationLoop> OnSimulationBuilt;
+        // IBattleSimulationEvents 계약 충족용 - 이 씬은 전투 중 유닛 추가를 이미 OnUnitAdded(아래)로
+        // 처리하므로(Field 배치 시간 타이머 자체가 없음, Docs/설계/25번은 프로덕션 전용) 이 이벤트들은
+        // 절대 발행되지 않는다.
+        public event Action<IBattleCombatant> OnAllySpawnedMidBattle;
+        public event Action<IReadOnlyList<PendingReinforcementInfo>> OnPendingReinforcementsChanged;
         public event Action OnReset;
         // 팔레트 드래그로 유닛이 하나 추가될 때마다 발행한다 - BattleViewPresenter는 OnSimulationBuilt
         // (Evaluate() 1회)에만 반응해 그 이후 RegisterAdditionalUnit으로 늘어난 유닛은 뷰가 안 생긴다.

@@ -14,10 +14,10 @@ namespace Game.Core
 
         public void Wire(IDependencyRegistrar registrar, IUIManager uiManager, IPanelRegistrar panelRegistrar)
         {
-            var formationPanel = GetComponent<IFormationPanel>();
+            var formationPanel = GetComponent<FieldFormationPanel>();
             if (formationPanel == null)
             {
-                throw new InvalidOperationException($"{nameof(FieldUIWiring)}와 같은 GameObject에 {nameof(IFormationPanel)} 구현체가 없다.");
+                throw new InvalidOperationException($"{nameof(FieldUIWiring)}와 같은 GameObject에 {nameof(FieldFormationPanel)} 구현체가 없다.");
             }
 
             var fieldUIController = GetComponent<IFieldUIController>();
@@ -39,6 +39,7 @@ namespace Game.Core
             registrar.TryResolve<ITacticsRepository>(out var tacticsRepository);
             registrar.TryResolve<ITripCurrentLocationRepository>(out var currentLocationRepository);
             registrar.TryResolve<ITripDestinationAssigner>(out var destinationAssigner);
+            registrar.TryResolve<IFieldFormationActivityRepository>(out var fieldActivityRepository);
 
             var sessionState = registrar.Resolve<ISessionState>();
             var encounterManager = registrar.Resolve<IEncounterManager>();
@@ -51,13 +52,13 @@ namespace Game.Core
 
             // Formation UI(정비창)는 Hub 전용이 아니다 - Field도 자신만의 화면 요소를 갖고 있어
             // (FieldUIInstaller 참고) 여기서도 다시 등록해야 "정비창 재호출"이 동작한다.
-            formationPanel.RegisterFormationUI(caravanRosterProvider, formationRepository, unitConditionRepository, uiManager, SceneNames.Field);
+            formationPanel.RegisterFieldFormationUI(caravanRosterProvider, formationRepository, unitConditionRepository, fieldActivityRepository, uiManager, SceneNames.Field);
             panelRegistrar.RegisterPanel(formationPanel);
 
             tacticsPanel.RegisterTacticsUI(tacticsRepository, uiManager, SceneNames.Field);
             panelRegistrar.RegisterPanel(tacticsPanel);
 
-            fieldUIController.RegisterFieldUI(uiManager, sessionState, encounterManager, battleController, battleResultSource, defeatConsequenceSource, battleSimulationEvents, gameManager, sceneRevealSignal, unitConditionRepository, currentLocationRepository, destinationAssigner);
+            fieldUIController.RegisterFieldUI(uiManager, sessionState, encounterManager, battleController, battleResultSource, defeatConsequenceSource, battleSimulationEvents, gameManager, sceneRevealSignal, unitConditionRepository, currentLocationRepository, destinationAssigner, fieldActivityRepository);
 
             // Hub↔Field 씬 전환 연출(SceneTransitionEffectController)이 다음 전환 때 슬라이드시킬
             // 대상을 등록한다 - Field는 전용 요소를 새로 만들지 않고 기존 이동 뷰 루트를 재사용한다

@@ -447,6 +447,7 @@ namespace Game.Core.Editor
         private const string BattlePrefabFolder = "Assets/Prefabs/UI/Battle";
         private const string BattleCharacterViewPrefabPath = BattlePrefabFolder + "/BattleCharacterUnitView.prefab";
         private const string BattleProtectedViewPrefabPath = BattlePrefabFolder + "/BattleProtectedUnitView.prefab";
+        private const string BattlePendingReinforcementViewPrefabPath = BattlePrefabFolder + "/BattlePendingReinforcementView.prefab";
 
         /// <summary>
         /// 전투 유닛(캐릭터/보호목표) 스프라이트의 루트 - Canvas 밖 씬 루트에 독립적으로 만든다
@@ -610,6 +611,45 @@ namespace Game.Core.Editor
             Object.DestroyImmediate(go);
 
             return savedPrefab.GetComponent<BattleProtectedUnitView>();
+        }
+
+        // 전투 중 신규 소환 유령(설계 25번 §6.3, 사용자 확정 2026-09-05) - 본체 SpriteRenderer +
+        // 잔여시간 월드 텍스트(TextMeshPro, UGUI 아님 - 이 프리팹은 BattleWorldRoot 산하 순수 월드
+        // 오브젝트라 Canvas가 없다) 구성.
+        public static BattlePendingReinforcementView GetOrCreateBattlePendingReinforcementViewPrefab()
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(BattlePendingReinforcementViewPrefabPath);
+            if (existing != null)
+            {
+                return existing.GetComponent<BattlePendingReinforcementView>();
+            }
+
+            EnsureBattlePrefabFolder();
+
+            var go = new GameObject("BattlePendingReinforcementView", typeof(SpriteRenderer));
+            var layer = LayerMask.NameToLayer(BattleLayerName);
+            go.layer = layer >= 0 ? layer : 0;
+            var renderer = go.GetComponent<SpriteRenderer>();
+
+            var textGo = new GameObject("RemainingSecondsText", typeof(TextMeshPro));
+            textGo.transform.SetParent(go.transform, false);
+            textGo.layer = layer >= 0 ? layer : 0;
+            textGo.transform.localPosition = new Vector3(0f, 0.5f, 0f); // 본체 위쪽에 표시
+            var text = textGo.GetComponent<TextMeshPro>();
+            text.alignment = TextAlignmentOptions.Center;
+            text.fontSize = 3f;
+            text.color = Color.white;
+
+            var view = go.AddComponent<BattlePendingReinforcementView>();
+            var so = new SerializedObject(view);
+            so.FindProperty("bodyRenderer").objectReferenceValue = renderer;
+            so.FindProperty("remainingSecondsText").objectReferenceValue = text;
+            so.ApplyModifiedProperties();
+
+            var savedPrefab = PrefabUtility.SaveAsPrefabAsset(go, BattlePendingReinforcementViewPrefabPath);
+            Object.DestroyImmediate(go);
+
+            return savedPrefab.GetComponent<BattlePendingReinforcementView>();
         }
 
         // 게이지 컴포넌트가 있어도 구버전(배경 SpriteRenderer가 게이지 오브젝트 자신에 있어 채움과

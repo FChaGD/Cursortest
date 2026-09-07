@@ -14,7 +14,8 @@ namespace Game.Core.Editor
     /// 도착 처리(도착 팝업)는 이번 범위에 포함하지 않는다(Docs/설계/04-2026-08-25-Field씬_아키텍처.md §5.3 참고).
     /// Formation UI(정비창)의 실제 화면 요소도 이 씬에 만든다 - Hub 씬이 언로드되면 그쪽 Formation UI는
     /// 파괴되므로, Field에서 "정비창 재호출"이 동작하려면 Field 자신의 Formation UI 사본이 필요하다
-    /// (FormationUIBuilder 공용, FormationPanel이 현재 로드된 콘텐츠 씬에 맞춰 다시 바인딩한다).
+    /// (FormationUIBuilder 공용, FieldFormationPanel이 이 씬의 화면 요소에 바인딩한다 - Hub는 별도의
+    /// HubFormationPanel이 담당한다, Docs/설계/25번 §2.3).
     /// </summary>
     public static class FieldUIInstaller
     {
@@ -69,12 +70,16 @@ namespace Game.Core.Editor
             var slotPrefab = FormationUIBuilder.GetOrCreateSlotPrefab();
             var iconPrefab = FormationUIBuilder.GetOrCreateIconPrefab();
             var rowPrefab = FormationUIBuilder.GetOrCreateRowPrefab();
-            FormationUIBuilder.Build(sceneUIRoot.transform, slotPrefab, iconPrefab, rowPrefab);
+            var pathLinePrefab = FormationUIBuilder.GetOrCreatePathLinePrefab();
+            var travelerIconPrefab = FormationUIBuilder.GetOrCreateTravelerIconPrefab();
+            var activityOverlayPrefab = FormationUIBuilder.GetOrCreateActivityOverlayPrefab();
+            FormationUIBuilder.Build(sceneUIRoot.transform, slotPrefab, iconPrefab, rowPrefab, pathLinePrefab, travelerIconPrefab, activityOverlayPrefab, includeApplyButton: false);
 
             // 전투 뷰 유닛 프리팹도 여기서 함께 최신화한다 - ManagerHierarchyInstaller(Bootstrap)가
             // FieldUIController에 이 프리팹들을 연결할 때 재사용한다(EditorUIBuilder 공용 조립 로직).
             EditorUIBuilder.GetOrCreateBattleCharacterViewPrefab();
             EditorUIBuilder.GetOrCreateBattleProtectedViewPrefab();
+            EditorUIBuilder.GetOrCreateBattlePendingReinforcementViewPrefab();
 
             EditorSceneManager.MarkSceneDirty(activeScene);
             Debug.Log("Field UI(이동 뷰/전투 뷰/결과 팝업) 하이어라키 생성/동기화 완료. 씬을 저장(Ctrl+S)해야 변경사항이 파일에 반영된다.");

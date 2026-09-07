@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Game.Core
@@ -7,6 +8,8 @@ namespace Game.Core
     {
         public event Action<BattleResult> OnBattleEnded;
         public event Action<BattleSimulationLoop> OnSimulationBuilt;
+        public event Action<IBattleCombatant> OnAllySpawnedMidBattle;
+        public event Action<IReadOnlyList<PendingReinforcementInfo>> OnPendingReinforcementsChanged;
 
         private IBattleResultRule resultRule;
         private IDefeatConsequenceRule consequenceRule;
@@ -73,12 +76,23 @@ namespace Game.Core
                 tacticsConsumer.SetTacticsReader(tacticsRepository);
             }
 
+            // Field 배치 활동 저장소(설계 25번 §6)도 같은 이유로 TryResolve - 없으면(인스톨러 미실행,
+            // 또는 이 규칙이 Field 배치 시간 기능 자체를 모르는 경우) 전투 중 신규 소환 기능만
+            // 자연히 비활성화된다.
+            if (resultRule is IRequiresFieldFormationActivityRepository fieldActivityConsumer
+                && registrar.TryResolve<IFieldFormationActivityRepository>(out var fieldActivityRepository))
+            {
+                fieldActivityConsumer.SetFieldFormationActivityRepository(fieldActivityRepository);
+            }
+
             // 규칙이 시뮬레이션 생성 이벤트를 노출하면(IBattleSimulationEvents), 그대로 흘려보낸다 -
             // 뷰 계층(FieldUIController/BattleViewPresenter)은 BattleManager만 알면 되고 규칙의 구체
             // 타입(LiveBattleSimulationRule)을 몰라도 된다(DIP).
             if (resultRule is IBattleSimulationEvents simulationEvents)
             {
                 simulationEvents.OnSimulationBuilt += loop => OnSimulationBuilt?.Invoke(loop);
+                simulationEvents.OnAllySpawnedMidBattle += unit => OnAllySpawnedMidBattle?.Invoke(unit);
+                simulationEvents.OnPendingReinforcementsChanged += pending => OnPendingReinforcementsChanged?.Invoke(pending);
             }
 
             // 규칙이 일시정지/재개를 지원하면(IPausableBattleSimulation) 보관해둔다 - 화면이 완전히

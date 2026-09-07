@@ -9,10 +9,12 @@ namespace Game.Core
     /// </summary>
     public class FormationLayout
     {
-        // 배치가 아직 없을 때(Hub 정비창을 한 번도 저장하지 않은 상태 등) 그리드 열 수의 단일 출처 -
-        // FormationGridView의 인스펙터 기본값과 LiveBattleSimulationRule의 배치 없음 폴백이 이 값을
-        // 공유한다. 따로 들고 있으면 하나만 바뀌었을 때 조용히 어긋난다(BattleFieldGeometry와 같은 이유).
+        // 배치가 아직 없을 때(Hub 정비창을 한 번도 저장하지 않은 상태 등) 그리드 열/행 수의 단일
+        // 출처 - FormationGridView의 인스펙터 기본값과 LiveBattleSimulationRule/
+        // InMemoryFieldFormationActivityRepository의 배치 없음 폴백이 이 값을 공유한다. 따로 들고
+        // 있으면 하나만 바뀌었을 때 조용히 어긋난다(BattleFieldGeometry와 같은 이유).
         public const int DefaultColumnCount = 8;
+        public const int DefaultRowCount = 2;
 
         private readonly string[] slotUnitIds;
 
@@ -46,5 +48,30 @@ namespace Game.Core
         }
 
         public FormationLayout Clone() => new(ColumnCount, RowCount, (string[])slotUnitIds.Clone());
+
+        // 그리드 열/행 수를 바꾼 새 레이아웃을 만든다 - 기존 배치는 같은 (row, col) 위치 기준으로
+        // 옮기고, 줄어든 영역 밖으로 밀려나는 배치는 버린다(배치 UI 디버그 그리드 리사이즈 전용). 뷰만
+        // 리사이즈하고 데이터는 이 메서드로 맞추지 않으면, 새로 넓어진 칸의 슬롯 인덱스가 옛 배열
+        // 범위를 벗어나 배치가 조용히 실패하는 버그가 있었다(실전 확인, 2026-09-06).
+        public FormationLayout Resize(int newColumnCount, int newRowCount)
+        {
+            var resized = new FormationLayout(newColumnCount, newRowCount);
+            var rowsToCopy = RowCount < newRowCount ? RowCount : newRowCount;
+            var columnsToCopy = ColumnCount < newColumnCount ? ColumnCount : newColumnCount;
+
+            for (var row = 0; row < rowsToCopy; row++)
+            {
+                for (var col = 0; col < columnsToCopy; col++)
+                {
+                    var unitId = slotUnitIds[row * ColumnCount + col];
+                    if (!string.IsNullOrEmpty(unitId))
+                    {
+                        resized.SetUnitId(row * newColumnCount + col, unitId);
+                    }
+                }
+            }
+
+            return resized;
+        }
     }
 }

@@ -1,16 +1,14 @@
-using System;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 
 namespace Game.Core
 {
     /// <summary>
-    /// 배치 UI의 드래그 앤 드롭 배치 판단(교체/스왑/취소)과 드래그 고스트 표시를 전담한다
-    /// (TripMapInteractionCoordinator와 같은 이유로 FormationPanel에서 분리 - SRP,
-    /// Docs/Refactor 참고). 배치 데이터(FormationLayout)와 유닛 조회(unitsById)는 FormationPanel이
-    /// 계속 소유하며, 매 호출마다 인자로 받는다 - 디버그 리사이즈로 currentLayout이 통째로 교체돼도
-    /// 항상 최신 값을 참조하기 위해 내부에 캐시하지 않는다.
+    /// 배치 UI의 드래그 상태 추적과 드래그 고스트 표시만 전담한다(TripMapInteractionCoordinator와
+    /// 같은 이유로 FormationPanel에서 분리 - SRP). 드롭 시 실제로 무엇을 반영할지(교체/스왑/취소
+    /// 판단)는 더 이상 여기서 하지 않는다 - Hub/Field 배치 UI가 그 판단을 각자 다르게 내려야 해서
+    /// (Docs/설계/25번 §2.2) 호출자(FormationGridEditor)에게 위임했다. 이 클래스는 "지금 무엇을
+    /// 드래그 중인지"와 고스트 아이콘 표시만 안다.
     /// </summary>
     internal class FormationDragCoordinator
     {
@@ -18,9 +16,10 @@ namespace Game.Core
         private Canvas rootCanvas;
 
         private FormationUnitIconView dragGhost;
-        private IFormationUnit draggedUnit;
-        private int? draggedFromSlot;
-        private bool dropHandled;
+
+        public IFormationUnit DraggedUnit { get; private set; }
+        public int? DraggedFromSlot { get; private set; }
+        public bool DropHandled { get; private set; }
 
         public void Rebind(FormationUnitIconView dragGhostPrefab, Canvas rootCanvas)
         {
@@ -35,32 +34,22 @@ namespace Game.Core
                 dragGhost.gameObject.SetActive(false);
             }
 
-            draggedUnit = null;
-            draggedFromSlot = null;
-            dropHandled = false;
+            DraggedUnit = null;
+            DraggedFromSlot = null;
+            DropHandled = false;
         }
 
-        public void BeginFromPalette(IFormationUnit unit, PointerEventData eventData)
-        {
-            BeginDrag(unit, null, eventData);
-        }
+        public void BeginFromPalette(IFormationUnit unit, PointerEventData eventData) => BeginDrag(unit, null, eventData);
 
-        public void BeginFromGrid(int originSlotIndex, FormationLayout layout, IReadOnlyDictionary<string, IFormationUnit> unitsById, PointerEventData eventData)
-        {
-            var unitId = layout.GetUnitId(originSlotIndex);
-            if (string.IsNullOrEmpty(unitId) || !unitsById.TryGetValue(unitId, out var unit))
-            {
-                return;
-            }
-
-            BeginDrag(unit, originSlotIndex, eventData);
-        }
+        // 슬롯 인덱스가 가리키는 유닛이 무엇인지는 더 이상 이 클래스가 조회하지 않는다 - 호출자가
+        // 이미 해석한 IFormationUnit을 그대로 넘긴다(레이아웃 조회 책임을 호출자에게 넘김).
+        public void BeginFromGrid(IFormationUnit unit, int originSlotIndex, PointerEventData eventData) => BeginDrag(unit, originSlotIndex, eventData);
 
         private void BeginDrag(IFormationUnit unit, int? originSlotIndex, PointerEventData eventData)
         {
-            draggedUnit = unit;
-            draggedFromSlot = originSlotIndex;
-            dropHandled = false;
+            DraggedUnit = unit;
+            DraggedFromSlot = originSlotIndex;
+            DropHandled = false;
 
             if (dragGhost == null && dragGhostPrefab != null && rootCanvas != null)
             {
@@ -87,69 +76,23 @@ namespace Game.Core
             }
         }
 
-        public void HandleSlotDropped(int targetSlotIndex, FormationLayout layout, Action<int> refreshSlot)
-        {
-            if (draggedUnit == null)
-            {
-                return;
-            }
+        // 드롭이 실제로 처리됐음을 기록한다 - EndDrag가 "취소(빈 곳에 드롭)"인지 구분하는 데 쓴다.
+        public void MarkDropHandled() => DropHandled = true;
 
-            dropHandled = true;
-
-            if (draggedFromSlot.HasValue)
-            {
-                var sourceIndex = draggedFromSlot.Value;
-                if (sourceIndex == targetSlotIndex)
-                {
-                    return;
-                }
-
-                var targetUnitId = layout.GetUnitId(targetSlotIndex);
-                if (string.IsNullOrEmpty(targetUnitId))
-                {
-                    layout.SetUnitId(targetSlotIndex, draggedUnit.Id);
-                    layout.Clear(sourceIndex);
-                }
-                else
-                {
-                    layout.Swap(sourceIndex, targetSlotIndex);
-                }
-
-                // sourceIndex는 아직 드래그 중인 아이콘이 점유하고 있으므로 여기서 갱신하지 않는다.
-                // 실제 갱신은 드래그가 끝나는 HandleIconEndDrag에서 처리한다.
-                refreshSlot(targetSlotIndex);
-            }
-            else
-            {
-                // 팔레트에서 시작한 배치 - 기존 점유 유닛은 슬롯 표시에서만 해제된다(상행 관리 데이터 삭제 아님).
-                layout.SetUnitId(targetSlotIndex, draggedUnit.Id);
-                refreshSlot(targetSlotIndex);
-            }
-        }
-
-        public void HandleIconEndDrag(FormationLayout layout, Action<int> refreshSlot)
+        // 드래그가 끝날 때(취소/이동/팔레트 배치 전부 포함) 고스트를 숨기고 상태를 리셋한다. 리셋
+        // 직전 상태를 스냅샷으로 반환하므로, 호출자는 이 메서드 호출 전에 값을 따로 읽어둘 필요가 없다.
+        public (IFormationUnit unit, int? fromSlot, bool wasHandled) EndDrag()
         {
             if (dragGhost != null)
             {
                 dragGhost.gameObject.SetActive(false);
             }
 
-            if (draggedFromSlot.HasValue)
-            {
-                if (!dropHandled)
-                {
-                    // 타일/팔레트가 아닌 곳에 드롭 = 배치 취소(슬롯 비움).
-                    layout.Clear(draggedFromSlot.Value);
-                }
-
-                // 원본 슬롯의 아이콘 파괴/갱신은 반드시 여기(드래그가 실제로 끝나는 시점)에서 한다.
-                // OnDrop 시점(HandleSlotDropped)에는 이 아이콘이 아직 드래그 중인 오브젝트라, 거기서
-                // 갱신하면 뒤이은 OnEndDrag 호출이 씹혀 드래그 상태가 초기화되지 않는 문제가 있었다.
-                refreshSlot(draggedFromSlot.Value);
-            }
-
-            draggedUnit = null;
-            draggedFromSlot = null;
+            var snapshot = (DraggedUnit, DraggedFromSlot, DropHandled);
+            DraggedUnit = null;
+            DraggedFromSlot = null;
+            DropHandled = false;
+            return snapshot;
         }
     }
 }

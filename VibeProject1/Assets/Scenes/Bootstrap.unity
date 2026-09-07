@@ -302,6 +302,7 @@ Transform:
   - {fileID: 1282644141}
   - {fileID: 440130298}
   - {fileID: 395953568}
+  - {fileID: 1773351159}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!114 &900000002
@@ -376,6 +377,7 @@ MonoBehaviour:
   - {fileID: 1640227778}
   - {fileID: 440130299}
   - {fileID: 395953569}
+  - {fileID: 1773351160}
 --- !u!1 &900002000
 GameObject:
   m_ObjectHideFlags: 0
@@ -503,12 +505,13 @@ GameObject:
   - component: {fileID: 900004001}
   - component: {fileID: 900004002}
   - component: {fileID: 900004003}
-  - component: {fileID: 900004004}
   - component: {fileID: 900004005}
   - component: {fileID: 900004006}
   - component: {fileID: 900004008}
   - component: {fileID: 900004007}
   - component: {fileID: 900004009}
+  - component: {fileID: 900004011}
+  - component: {fileID: 900004010}
   m_Layer: 0
   m_Name: UIManager
   m_TagString: Untagged
@@ -556,19 +559,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Game.Core::Game.Core.HubUIController
   backgroundSprite: {fileID: -6213211099624952456, guid: ddb61b4931c80334d853a698390a758d, type: 3}
---- !u!114 &900004004
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 900004000}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: e7258b90e1d82c14ea45922447bbfe30, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Game.Core::Game.Core.FormationPanel
-  dragGhostPrefab: {fileID: 4722751072990681403, guid: d8073edbd1293ab47b24970ec43254f2, type: 3}
 --- !u!114 &900004005
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -598,6 +588,7 @@ MonoBehaviour:
   backgroundSprite: {fileID: -7553997726247621767, guid: 474b0e768316e1846b3a440b32c0fa9f, type: 3}
   battleCharacterViewPrefab: {fileID: 4068516382489368410, guid: 307dcddb05e38e543aada8efee1ad8b0, type: 3}
   battleProtectedViewPrefab: {fileID: 8809418505044652343, guid: c057fc2e135ce1843a95bc698e1b2a37, type: 3}
+  battlePendingReinforcementViewPrefab: {fileID: 6507719022594825821, guid: 7109af2207776ac4ca275c33612e0bdc, type: 3}
 --- !u!114 &900004007
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -638,6 +629,32 @@ MonoBehaviour:
   partyPolicyCatalog: {fileID: 11400000, guid: 52c8416038382f148ba96f37207f56c6, type: 2}
   roleGroupTacticsStrings: {fileID: 11400000, guid: b242f5be5ff22f147b3aec9a1ecf584b, type: 2}
   partyPolicyStrings: {fileID: 11400000, guid: de96e2c3be77c194cbae1b1d4e762009, type: 2}
+--- !u!114 &900004010
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 900004000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 7c0bb972cf3f73e4a91b0ed53ff9efca, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Core::Game.Core.FieldFormationPanel
+  dragGhostPrefab: {fileID: 4722751072990681403, guid: d8073edbd1293ab47b24970ec43254f2, type: 3}
+--- !u!114 &900004011
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 900004000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2fc9c403c0e3ae4499e76794816b0da0, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Core::Game.Core.HubFormationPanel
+  dragGhostPrefab: {fileID: 4722751072990681403, guid: d8073edbd1293ab47b24970ec43254f2, type: 3}
 --- !u!1 &900005000
 GameObject:
   m_ObjectHideFlags: 0
@@ -653,6 +670,7 @@ GameObject:
   - component: {fileID: 900005008}
   - component: {fileID: 900005007}
   - component: {fileID: 900005006}
+  - component: {fileID: 900005009}
   m_Layer: 0
   m_Name: BattleManager
   m_TagString: Untagged
@@ -751,6 +769,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ab61ca32dddb40c2a76c40e94da995ff, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Core::Game.Core.DebugTools.BattleSurroundGizmoView
+--- !u!114 &900005009
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 900005000}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: feda567deb63ec840a2fc13f03c81fe9, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Core::Game.Core.DebugTools.BattleDebugResultView
 --- !u!1 &900006000
 GameObject:
   m_ObjectHideFlags: 0
@@ -1166,6 +1196,50 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5b7dbadfe9eb492fba342f06925bc9a2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Game.Core::Game.Core.PlaceholderTripInfoProvider
+--- !u!1 &1773351158
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1773351159}
+  - component: {fileID: 1773351160}
+  m_Layer: 0
+  m_Name: InMemoryFieldFormationActivityRepository
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!4 &1773351159
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1773351158}
+  serializedVersion: 2
+  m_LocalRotation: {x: -0, y: -0, z: -0, w: 1}
+  m_LocalPosition: {x: 0, y: 0, z: 0}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_ConstrainProportionsScale: 0
+  m_Children: []
+  m_Father: {fileID: 900000001}
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1773351160
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1773351158}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 643fccc421e8ba94d91d5a60a0c972cc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Game.Core::Game.Core.InMemoryFieldFormationActivityRepository
 --- !u!1 &1891997714
 GameObject:
   m_ObjectHideFlags: 0

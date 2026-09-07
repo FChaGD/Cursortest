@@ -19,29 +19,39 @@ namespace Game.Core
         private Transform enemyContainer;
         private BattleCharacterUnitView characterViewPrefab;
         private BattleProtectedUnitView protectedViewPrefab;
+        private BattlePendingReinforcementView pendingReinforcementViewPrefab;
         private BattleFieldWorldCameraView cameraView;
         private BattleBackgroundGridView backgroundView;
 
         private readonly List<BattleCharacterUnitView> activeCharacterViews = new();
         private readonly List<BattleProtectedUnitView> activeProtectedViews = new();
+        // Field 배치 시간(설계 25번 §6.3) 전투 중 신규 소환 유령 - get-or-create 재사용(매 틱 갱신되므로
+        // 파괴 후 재생성하면 낭비가 크다).
+        private readonly List<BattlePendingReinforcementView> activeReinforcementViews = new();
 
         public void Bind(IBattleSimulationEvents simulationEvents)
         {
             if (eventsBound) return;
 
             simulationEvents.OnSimulationBuilt += Present;
+            // Field 배치 시간(Docs/설계/25번 §6.2) 타이머가 전투 도중 완료돼 아군이 늦게 합류할 때 -
+            // OnSimulationBuilt(전투 시작 1회)에는 반영되지 않는 유닛이라 뷰를 별도로 스폰해야 한다.
+            simulationEvents.OnAllySpawnedMidBattle += unit => SpawnCharacterView(unit, allyContainer);
+            simulationEvents.OnPendingReinforcementsChanged += HandlePendingReinforcementsChanged;
             eventsBound = true;
         }
 
         public void RebindViews(
             Transform allyContainer, Transform enemyContainer,
             BattleCharacterUnitView characterViewPrefab, BattleProtectedUnitView protectedViewPrefab,
+            BattlePendingReinforcementView pendingReinforcementViewPrefab,
             BattleFieldWorldCameraView cameraView, BattleBackgroundGridView backgroundView)
         {
             this.allyContainer = allyContainer;
             this.enemyContainer = enemyContainer;
             this.characterViewPrefab = characterViewPrefab;
             this.protectedViewPrefab = protectedViewPrefab;
+            this.pendingReinforcementViewPrefab = pendingReinforcementViewPrefab;
             this.cameraView = cameraView;
             this.backgroundView = backgroundView;
         }
@@ -75,14 +85,41 @@ namespace Game.Core
             activeProtectedViews.Add(view);
         }
 
+        // Field 배치 시간(설계 25번 §6.3) - 전투 중 진행 상태가 바뀔 때마다(매 틱) 전체 목록을 받아
+        // get-or-create로 재사용한다. 개수가 줄면 남는 인스턴스는 숨기기만 하고 파괴하지 않는다.
+        private void HandlePendingReinforcementsChanged(IReadOnlyList<PendingReinforcementInfo> pending)
+        {
+            if (pendingReinforcementViewPrefab == null || allyContainer == null) return;
+
+            while (activeReinforcementViews.Count < pending.Count)
+            {
+                activeReinforcementViews.Add(Object.Instantiate(pendingReinforcementViewPrefab, allyContainer));
+            }
+
+            for (var i = 0; i < activeReinforcementViews.Count; i++)
+            {
+                if (i < pending.Count)
+                {
+                    activeReinforcementViews[i].gameObject.SetActive(true);
+                    activeReinforcementViews[i].Bind(pending[i].Position, pending[i].RemainingSeconds);
+                }
+                else
+                {
+                    activeReinforcementViews[i].gameObject.SetActive(false);
+                }
+            }
+        }
+
         // 다음 전투 시작 시 이전 전투의 View가 남아있지 않도록 정리한다. 개별 View는 사망/도주 시
         // 스스로 Destroy되지만(FadeAndDestroy), 전투가 도중에 중단되는 경우까지 대비한 안전장치다.
         private void Clear()
         {
             foreach (var view in activeCharacterViews) { if (view != null) Object.Destroy(view.gameObject); }
             foreach (var view in activeProtectedViews) { if (view != null) Object.Destroy(view.gameObject); }
+            foreach (var view in activeReinforcementViews) { if (view != null) Object.Destroy(view.gameObject); }
             activeCharacterViews.Clear();
             activeProtectedViews.Clear();
+            activeReinforcementViews.Clear();
         }
     }
 }

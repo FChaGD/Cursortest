@@ -19,19 +19,24 @@ namespace Game.Core.Editor
         private const string SlotPrefabPath = PrefabFolder + "/FormationSlot.prefab";
         private const string IconPrefabPath = PrefabFolder + "/FormationUnitIcon.prefab";
         private const string RowPrefabPath = PrefabFolder + "/FormationPaletteRow.prefab";
+        private const string PathLinePrefabPath = PrefabFolder + "/FormationPathLine.prefab";
+        private const string TravelerIconPrefabPath = PrefabFolder + "/FormationTravelerIcon.prefab";
+        private const string ActivityOverlayPrefabPath = PrefabFolder + "/FormationActivityOverlay.prefab";
 
         // 그리드 배경(연한 민트색, BuildGrid 참고)과 타일이 육안으로 뚜렷이 구분되도록 대비되는 색 사용.
         private static readonly Color SlotBackgroundColor = new(1f, 0.85f, 0.6f, 0.9f);
 
-        public static void Build(Transform parentRoot, FormationSlotView slotPrefab, FormationUnitIconView iconPrefab, FormationPaletteRowView rowPrefab)
+        // includeApplyButton: Hub는 true(로컬 편집+적용 버튼), Field는 false(즉시 반영이라 적용
+        // 버튼 자체가 없음, Docs/설계/25번 §2.3/§9-11).
+        public static void Build(Transform parentRoot, FormationSlotView slotPrefab, FormationUnitIconView iconPrefab, FormationPaletteRowView rowPrefab, FormationPathLineView pathLinePrefab, Image travelerIconPrefab, FormationActivityOverlayView activityOverlayPrefab, bool includeApplyButton)
         {
             var panelRoot = EditorUIBuilder.GetOrCreateUIObject(parentRoot, "FormationPanel");
             EditorUIBuilder.SetStretch(panelRoot.GetComponent<RectTransform>());
             EditorUIBuilder.EnsureMarker(panelRoot, FormationUIElementIds.PanelRoot);
 
             BuildPalette(panelRoot.transform, rowPrefab);
-            BuildTopRightButtons(panelRoot.transform);
-            BuildGrid(panelRoot.transform, slotPrefab, iconPrefab);
+            BuildTopRightButtons(panelRoot.transform, includeApplyButton);
+            BuildGrid(panelRoot.transform, slotPrefab, iconPrefab, pathLinePrefab, travelerIconPrefab, activityOverlayPrefab);
             BuildInfoPanel(panelRoot.transform);
             BuildDebugPanel(panelRoot.transform);
 
@@ -170,6 +175,153 @@ namespace Game.Core.Editor
             return savedPrefab.GetComponent<FormationSlotView>();
         }
 
+        // 배치/이동 진행 표시(반투명 아이콘 + 잔여 초, 기획 20번 §3.2/§3.3, 설계 25번 §5.1 갱신) -
+        // 슬롯의 자식이 아니라 FormationGridView가 slotContent 아래 별도 풀로 관리하는 독립
+        // 프리팹이다(렌더 순서를 슬롯/경로선/이동 아이콘과 독립적으로 강제해야 해서, 실전 확인).
+        // 경로선/이동 아이콘과 같은 이유로 slotContent 좌상단 기준 좌표계 + LayoutElement.ignoreLayout이 필요하다.
+        public static FormationActivityOverlayView GetOrCreateActivityOverlayPrefab()
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(ActivityOverlayPrefabPath);
+            if (existing != null && HasUpToDateAnchor(existing))
+            {
+                return existing.GetComponent<FormationActivityOverlayView>();
+            }
+
+            var go = new GameObject("FormationActivityOverlay", typeof(RectTransform));
+            var goRect = (RectTransform)go.transform;
+            goRect.anchorMin = goRect.anchorMax = new Vector2(0f, 1f);
+            goRect.pivot = new Vector2(0.5f, 0.5f);
+            goRect.sizeDelta = new Vector2(96f, 96f);
+            var layoutElement = go.AddComponent<LayoutElement>();
+            layoutElement.ignoreLayout = true;
+
+            var iconGo = new GameObject("Icon", typeof(RectTransform));
+            iconGo.transform.SetParent(go.transform, false);
+            EditorUIBuilder.SetStretch((RectTransform)iconGo.transform);
+            var iconImage = iconGo.AddComponent<Image>();
+            iconImage.color = new Color(1f, 1f, 1f, 0.5f); // 반투명(사용자 확정 - 출발/도착 마크는 이 상태 유지)
+            iconImage.raycastTarget = false;
+
+            var textGo = new GameObject("RemainingSecondsText", typeof(RectTransform));
+            textGo.transform.SetParent(go.transform, false);
+            var textRect = (RectTransform)textGo.transform;
+            textRect.anchorMin = new Vector2(0f, 0f);
+            textRect.anchorMax = new Vector2(1f, 0.4f);
+            textRect.offsetMin = Vector2.zero;
+            textRect.offsetMax = Vector2.zero;
+            var text = textGo.AddComponent<TextMeshProUGUI>();
+            text.alignment = TextAlignmentOptions.Center;
+            text.fontSize = 20;
+            text.color = Color.black;
+            text.raycastTarget = false;
+
+            var overlay = go.AddComponent<FormationActivityOverlayView>();
+            var so = new SerializedObject(overlay);
+            so.FindProperty("iconImage").objectReferenceValue = iconImage;
+            so.FindProperty("remainingSecondsText").objectReferenceValue = text;
+            so.ApplyModifiedProperties();
+
+            go.SetActive(false); // 프리팹 자체는 비활성 원본 - Instantiate 후 SetActivityOverlays가 켠다
+
+            var savedPrefab = PrefabUtility.SaveAsPrefabAsset(go, ActivityOverlayPrefabPath);
+            Object.DestroyImmediate(go);
+
+            return savedPrefab.GetComponent<FormationActivityOverlayView>();
+        }
+
+        // 이동 경로선 세그먼트 프리팹(설계 25번 §5.2) - 오직 선분만 담당한다. 이동 중인 유닛
+        // 아이콘은 렌더 순서(선은 아래/아이콘은 위, 실전 확인)가 달라야 해서 별도 프리팹
+        // (GetOrCreateTravelerIconPrefab)으로 분리했다 - 같은 오브젝트에 두면 형제 인덱스를
+        // 독립적으로 강제할 수 없다. FormationGridView.pathLinePrefab이 Instantiate로 재사용한다.
+        public static FormationPathLineView GetOrCreatePathLinePrefab()
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(PathLinePrefabPath);
+            if (existing != null && HasUpToDateAnchor(existing))
+            {
+                return existing.GetComponent<FormationPathLineView>();
+            }
+
+            var go = new GameObject("FormationPathLine", typeof(RectTransform));
+            // 이 루트의 앵커/피벗을 slotContent와 같은 좌상단 기준(0,1)으로 맞춘다 - 기본값(중앙
+            // 고정 앵커)으로 두면 이 루트 자신이 slotContent 중앙에 위치하게 되어, 자식(선분)에
+            // slotContent 좌상단 기준으로 계산해 넣는 anchoredPosition(GetSlotAnchoredPosition
+            // 참고)이 엉뚱한 원점에서 계산돼 화면 밖으로 어긋난다(실전 확인된 버그).
+            var goRect = (RectTransform)go.transform;
+            goRect.anchorMin = goRect.anchorMax = new Vector2(0f, 1f);
+            goRect.pivot = new Vector2(0f, 1f);
+            goRect.anchoredPosition = Vector2.zero;
+            // slotContent에는 GridLayoutGroup이 붙어 있어(BuildGridScrollArea) 직계 자식을 전부
+            // 격자 칸으로 취급해 강제로 재배치한다 - 이 경로선은 슬롯과 같은 좌표계를 공유해야
+            // 하지만 격자 칸이 아니므로, LayoutElement.ignoreLayout으로 그 강제 배치에서 제외한다
+            // (실전 확인된 버그 - 이 설정이 없으면 다음 빈 격자 칸 위치로 밀려나 화면 밖으로
+            // 벗어나 보이지 않았다).
+            var layoutElement = go.AddComponent<LayoutElement>();
+            layoutElement.ignoreLayout = true;
+
+            var segmentGo = new GameObject("PathSegment", typeof(RectTransform), typeof(Image));
+            segmentGo.transform.SetParent(go.transform, false);
+            var segmentRect = (RectTransform)segmentGo.transform;
+            segmentRect.anchorMin = segmentRect.anchorMax = new Vector2(0f, 1f);
+            segmentRect.pivot = new Vector2(0.5f, 0.5f);
+            var segmentImage = segmentGo.GetComponent<Image>();
+            segmentImage.color = new Color(1f, 0.9f, 0.2f, 1f); // 불투명(사용자 확정)
+            segmentImage.raycastTarget = false;
+            segmentGo.SetActive(false); // 프리팹 자체는 비활성 원본 - Instantiate 후 SetPath가 켠다
+
+            var pathLineView = go.AddComponent<FormationPathLineView>();
+            var so = new SerializedObject(pathLineView);
+            so.FindProperty("segmentPrefab").objectReferenceValue = segmentImage;
+            so.ApplyModifiedProperties();
+
+            var savedPrefab = PrefabUtility.SaveAsPrefabAsset(go, PathLinePrefabPath);
+            Object.DestroyImmediate(go);
+
+            return savedPrefab.GetComponent<FormationPathLineView>();
+        }
+
+        // 이동 중인 유닛 아이콘 프리팹(기획 20번 §3.3, 설계 25번 §5.2 갱신) - 항상 불투명, 항상
+        // 모든 슬롯/오버레이/경로선보다 위(FormationGridView.SetMovePaths가 매번 SetAsLastSibling
+        // 강제). 경로선과 마찬가지로 slotContent 좌상단 기준 좌표계+LayoutElement.ignoreLayout이 필요하다.
+        public static Image GetOrCreateTravelerIconPrefab()
+        {
+            var existing = AssetDatabase.LoadAssetAtPath<GameObject>(TravelerIconPrefabPath);
+            if (existing != null && HasUpToDateAnchor(existing))
+            {
+                return existing.GetComponent<Image>();
+            }
+
+            var go = new GameObject("FormationTravelerIcon", typeof(RectTransform), typeof(Image));
+            var rect = (RectTransform)go.transform;
+            rect.anchorMin = rect.anchorMax = new Vector2(0f, 1f);
+            rect.pivot = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(72f, 72f);
+            var layoutElement = go.AddComponent<LayoutElement>();
+            layoutElement.ignoreLayout = true;
+            var image = go.GetComponent<Image>();
+            image.color = Color.white; // 불투명(사용자 확정) - 유닛 아이콘 스프라이트를 그대로 보여준다
+            image.raycastTarget = false;
+            go.SetActive(false); // 프리팹 자체는 비활성 원본 - Instantiate 후 SetMovePaths가 켠다
+
+            var savedPrefab = PrefabUtility.SaveAsPrefabAsset(go, TravelerIconPrefabPath);
+            Object.DestroyImmediate(go);
+
+            return savedPrefab.GetComponent<Image>();
+        }
+
+        // 설계 25번 §5 구버전(GridLayoutGroup에 의해 화면 밖으로 밀려나던 LayoutElement 누락 버전,
+        // 또는 루트 앵커가 slotContent 좌상단 기준과 안 맞아 자식 좌표가 어긋나던 버전)인지 판별 -
+        // 있으면 통째로 재생성한다. 피벗은 검사하지 않는다 - 경로선(위치 컨테이너, pivot=(0,1))과
+        // 이동 아이콘/오버레이 마크(자기 자신이 중심에 오도록, pivot=(0.5,0.5))가 서로 다른 값을
+        // 정당하게 쓰기 때문이다.
+        private static bool HasUpToDateAnchor(GameObject prefabRoot)
+        {
+            var layoutElement = prefabRoot.GetComponent<LayoutElement>();
+            if (layoutElement == null || !layoutElement.ignoreLayout) return false;
+
+            var rect = (RectTransform)prefabRoot.transform;
+            return rect.anchorMin == new Vector2(0f, 1f) && rect.anchorMax == new Vector2(0f, 1f);
+        }
+
         private static void BuildPalette(Transform parent, FormationPaletteRowView rowPrefab)
         {
             var root = EditorUIBuilder.GetOrCreateUIObject(parent, "Palette");
@@ -186,27 +338,36 @@ namespace Game.Core.Editor
             so.ApplyModifiedProperties();
         }
 
-        private static void BuildTopRightButtons(Transform parent)
+        private static void BuildTopRightButtons(Transform parent, bool includeApplyButton)
         {
             // 이전 버전("저장" 표기)에 남아있을 수 있는 오브젝트는 제거하고 "적용"으로 새로 만든다.
             EditorUIBuilder.DestroyChildIfExists(parent, "SaveButton");
 
-            var applyGo = EditorUIBuilder.GetOrCreateUIObject(parent, "ApplyButton");
-            EditorUIBuilder.SetAnchors(applyGo.GetComponent<RectTransform>(), new Vector2(0.64f, 0.75f), new Vector2(0.76f, 0.85f));
-            EditorUIBuilder.EnsureImage(applyGo, new Color(0.75f, 0.87f, 1f, 1f));
-            EditorUIBuilder.EnsureButton(applyGo);
-            EditorUIBuilder.EnsureLabel(applyGo.transform, "적용");
-            EditorUIBuilder.EnsureMarker(applyGo, FormationUIElementIds.ApplyButton);
+            if (includeApplyButton)
+            {
+                var applyGo = EditorUIBuilder.GetOrCreateUIObject(parent, "ApplyButton");
+                EditorUIBuilder.SetAnchors(applyGo.GetComponent<RectTransform>(), new Vector2(0.64f, 0.75f), new Vector2(0.76f, 0.85f));
+                EditorUIBuilder.EnsureImage(applyGo, new Color(0.75f, 0.87f, 1f, 1f));
+                EditorUIBuilder.EnsureButton(applyGo);
+                EditorUIBuilder.EnsureLabel(applyGo.transform, "적용");
+                EditorUIBuilder.EnsureMarker(applyGo, FormationUIElementIds.ApplyButton);
+            }
+            else
+            {
+                // Field는 즉시 반영이라 적용 버튼이 없다(Docs/기획/20번 §3.1) - 이전에 Hub와 같은
+                // 프리팹 구성을 썼을 때 남아있을 수 있는 버튼을 정리한다(재실행 안전성).
+                EditorUIBuilder.DestroyChildIfExists(parent, "ApplyButton");
+            }
 
             var closeGo = EditorUIBuilder.GetOrCreateUIObject(parent, "CloseButton");
-            EditorUIBuilder.SetAnchors(closeGo.GetComponent<RectTransform>(), new Vector2(0.78f, 0.75f), new Vector2(0.86f, 0.85f));
+            EditorUIBuilder.SetAnchors(closeGo.GetComponent<RectTransform>(), includeApplyButton ? new Vector2(0.78f, 0.75f) : new Vector2(0.64f, 0.75f), includeApplyButton ? new Vector2(0.86f, 0.85f) : new Vector2(0.76f, 0.85f));
             EditorUIBuilder.EnsureImage(closeGo, new Color(0.85f, 0.85f, 0.85f, 1f));
             EditorUIBuilder.EnsureButton(closeGo);
             EditorUIBuilder.EnsureLabel(closeGo.transform, "닫기");
             EditorUIBuilder.EnsureMarker(closeGo, FormationUIElementIds.CloseButton);
         }
 
-        private static void BuildGrid(Transform parent, FormationSlotView slotPrefab, FormationUnitIconView occupantIconPrefab)
+        private static void BuildGrid(Transform parent, FormationSlotView slotPrefab, FormationUnitIconView occupantIconPrefab, FormationPathLineView pathLinePrefab, Image travelerIconPrefab, FormationActivityOverlayView activityOverlayPrefab)
         {
             var root = EditorUIBuilder.GetOrCreateUIObject(parent, "Grid");
             EditorUIBuilder.SetAnchors(root.GetComponent<RectTransform>(), new Vector2(0.08f, 0.30f), new Vector2(0.64f, 0.74f));
@@ -226,6 +387,9 @@ namespace Game.Core.Editor
             so.FindProperty("slotLayoutGroup").objectReferenceValue = layoutGroup;
             so.FindProperty("slotPrefab").objectReferenceValue = slotPrefab;
             so.FindProperty("occupantIconPrefab").objectReferenceValue = occupantIconPrefab;
+            so.FindProperty("pathLinePrefab").objectReferenceValue = pathLinePrefab;
+            so.FindProperty("travelerIconPrefab").objectReferenceValue = travelerIconPrefab;
+            so.FindProperty("activityOverlayPrefab").objectReferenceValue = activityOverlayPrefab;
             so.ApplyModifiedProperties();
         }
 

@@ -6776,6 +6776,9 @@ MonoBehaviour:
   slotLayoutGroup: {fileID: 1223052337}
   slotPrefab: {fileID: 7484929482358080228, guid: 56f3f3d1940ef344c99139c1076fd7a2, type: 3}
   occupantIconPrefab: {fileID: 4722751072990681403, guid: d8073edbd1293ab47b24970ec43254f2, type: 3}
+  pathLinePrefab: {fileID: 3892202519324531508, guid: 2b3c7df066353d54aa67695deb7a888c, type: 3}
+  travelerIconPrefab: {fileID: 9159230846767659831, guid: a8810ac32407d2349af39b7fb2caa2cc, type: 3}
+  activityOverlayPrefab: {fileID: 4870804361441741873, guid: 157c5732b55f5ac4581d2e44f6ee0ee9, type: 3}
   columnCount: 8
   rowCount: 4
   slotSize: {x: 120, y: 120}

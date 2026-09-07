@@ -19,10 +19,10 @@ namespace Game.Core
                 throw new InvalidOperationException($"{nameof(HubUIWiring)}와 같은 GameObject에 {nameof(IHubUIController)} 구현체가 없다.");
             }
 
-            var formationPanel = GetComponent<IFormationPanel>();
+            var formationPanel = GetComponent<HubFormationPanel>();
             if (formationPanel == null)
             {
-                throw new InvalidOperationException($"{nameof(HubUIWiring)}와 같은 GameObject에 {nameof(IFormationPanel)} 구현체가 없다.");
+                throw new InvalidOperationException($"{nameof(HubUIWiring)}와 같은 GameObject에 {nameof(HubFormationPanel)} 구현체가 없다.");
             }
 
             var tripPanel = GetComponent<ITripPanel>();

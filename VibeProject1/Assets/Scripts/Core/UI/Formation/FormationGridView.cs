@@ -10,7 +10,8 @@ namespace Game.Core
     /// 배치 UI의 그리드 타일 영역. 정사각형 타일이 X열 x Y행으로 틈 없이 붙어 배치되며, 열/행 수와
     /// 타일 크기는 인스펙터 또는 SetGridDimensions/SetSlotSize로 조절 가능하다. 화면 밖 타일은
     /// (Grid 루트에 붙은) ScrollRect의 드래그로 가로/세로 모두 이동해 볼 수 있다. 실제 배치 데이터
-    /// (FormationLayout)는 FormationPanel이 소유하며, 이 클래스는 렌더링과 드래그/드롭 이벤트 중계만 담당한다.
+    /// (FormationLayout)는 FormationGridEditor가 소유하며, 이 클래스는 렌더링과 드래그/드롭 이벤트
+    /// 중계, Field 배치 시간 오버레이/경로선(설계 25번 §5) 표시만 담당한다.
     /// </summary>
     public class FormationGridView : MonoBehaviour
     {
@@ -18,12 +19,22 @@ namespace Game.Core
         [SerializeField] private GridLayoutGroup slotLayoutGroup;
         [SerializeField] private FormationSlotView slotPrefab;
         [SerializeField] private FormationUnitIconView occupantIconPrefab;
+        // Field 배치 시간(Docs/설계/25번 §5.2) 이동 경로선 - Hub 프리팹에는 없을 수 있어 null 허용.
+        [SerializeField] private FormationPathLineView pathLinePrefab;
+        // 경로 위를 실시간으로 이동하는 유닛 아이콘(기획 20번 §3.3) - 경로선과 별도 풀로 관리한다.
+        [SerializeField] private Image travelerIconPrefab;
+        // 배치/이동 진행 중인 슬롯의 반투명 마크(기획 20번 §3.2/§3.3, 설계 25번 §5.1) - 슬롯의
+        // 자식이 아니라 이 클래스가 별도 풀로 관리한다.
+        [SerializeField] private FormationActivityOverlayView activityOverlayPrefab;
         [SerializeField, Min(0)] private int columnCount = FormationLayout.DefaultColumnCount;
         [SerializeField, Min(0)] private int rowCount = 2;
         [SerializeField] private Vector2 slotSize = new(120f, 120f);
         [SerializeField, Min(0)] private int overscrollTileMargin = 5;
 
         private readonly List<FormationSlotView> slots = new();
+        private readonly List<FormationPathLineView> pathLines = new();
+        private readonly List<Image> travelerIcons = new();
+        private readonly List<FormationActivityOverlayView> activityOverlays = new();
         private ScrollRect scrollRect;
 
         private Action<int> onSlotDropped;
@@ -54,7 +65,7 @@ namespace Game.Core
         }
 
         /// <summary>
-        /// 열(X)/행(Y) 수를 런타임에 조절한다(디버깅 UI 연동 지점). 배치 데이터 재정렬은 호출자(FormationPanel)의 책임이다.
+        /// 열(X)/행(Y) 수를 런타임에 조절한다(디버깅 UI 연동 지점). 배치 데이터 재정렬은 호출자(FormationGridEditor)의 책임이다.
         /// </summary>
         public void SetGridDimensions(int columns, int rows)
         {
@@ -117,6 +128,120 @@ namespace Game.Core
                 (iconView, eventData) => onIconBeginDrag?.Invoke(slotIndex, iconView, eventData),
                 eventData => onIconDrag?.Invoke(eventData),
                 eventData => onIconEndDrag?.Invoke(eventData));
+        }
+
+        // 슬롯의 현재 화면 좌표(slotContent 기준 anchoredPosition) - 이동 경로선(§5.2)과 오버레이
+        // 마크(§5.1)가 여기 기준으로 자기 위치를 잡는다. GridLayoutGroup이 계산해 둔 실제 배치
+        // 좌표를 그대로 읽는다.
+        public Vector2 GetSlotAnchoredPosition(int index) => ((RectTransform)slots[index].transform).anchoredPosition;
+
+        // 배치/이동 진행 중인 슬롯마다 반투명 마크(기획 20번 §3.2/§3.3)를 하나씩 그린다 - 개수가
+        // 줄면 남는 인스턴스는 숨기기만 하고 파괴하지 않는다(get-or-create 재사용). 렌더 순서는
+        // 호출 순서로 정한다 - 반드시 SetPathLines 다음, SetTravelerIcons 이전에 호출할 것
+        // (FormationGridEditor.TickActivityOverlays 참고, 실전 확인된 순서: 슬롯 < 경로선 < 이
+        // 마크 < 이동 아이콘).
+        public void SetActivityOverlays(IReadOnlyList<FormationActivityOverlayVisual> overlays)
+        {
+            if (activityOverlayPrefab == null)
+            {
+                return;
+            }
+
+            while (activityOverlays.Count < overlays.Count)
+            {
+                activityOverlays.Add(Instantiate(activityOverlayPrefab, slotContent));
+            }
+
+            for (var i = 0; i < activityOverlays.Count; i++)
+            {
+                activityOverlays[i].transform.SetAsLastSibling();
+                if (i < overlays.Count)
+                {
+                    var overlay = overlays[i];
+                    var view = activityOverlays[i];
+                    view.gameObject.SetActive(true);
+                    ((RectTransform)view.transform).anchoredPosition = GetSlotAnchoredPosition(overlay.SlotIndex);
+                    view.Bind(overlay.Unit?.Icon, overlay.Activity.RequiredSeconds - overlay.Activity.ElapsedSeconds);
+                }
+                else
+                {
+                    activityOverlays[i].gameObject.SetActive(false);
+                }
+            }
+        }
+
+        // 동시에 진행 중인 이동 활동 수만큼 경로선을 그린다(개념적으로 여러 유닛이 동시에 이동할 수
+        // 있음) - 개수가 줄면 남는 인스턴스는 숨기기만 하고 파괴하지 않는다. 반드시 SetActivityOverlays
+        // 이전에 호출할 것(렌더 순서, 위 주석 참고).
+        public void SetPathLines(IReadOnlyList<FormationMovePathVisual> moves)
+        {
+            if (pathLinePrefab == null)
+            {
+                return;
+            }
+
+            while (pathLines.Count < moves.Count)
+            {
+                pathLines.Add(Instantiate(pathLinePrefab, slotContent));
+            }
+
+            for (var i = 0; i < pathLines.Count; i++)
+            {
+                pathLines[i].transform.SetAsLastSibling();
+                if (i < moves.Count)
+                {
+                    var move = moves[i];
+                    var positions = new List<Vector2>(move.PathSlotIndices.Count);
+                    foreach (var slotIndex in move.PathSlotIndices)
+                    {
+                        positions.Add(GetSlotAnchoredPosition(slotIndex));
+                    }
+                    pathLines[i].gameObject.SetActive(true);
+                    pathLines[i].SetPath(positions);
+                }
+                else
+                {
+                    pathLines[i].gameObject.SetActive(false);
+                }
+            }
+        }
+
+        // 경로 위를 실시간으로 이동하는 유닛 아이콘을 그린다(기획 20번 §3.3) - 반드시
+        // SetActivityOverlays 이후에 호출할 것(항상 모든 것보다 위, 렌더 순서 위 주석 참고).
+        public void SetTravelerIcons(IReadOnlyList<FormationMovePathVisual> moves)
+        {
+            if (travelerIconPrefab == null)
+            {
+                return;
+            }
+
+            while (travelerIcons.Count < moves.Count)
+            {
+                travelerIcons.Add(Instantiate(travelerIconPrefab, slotContent));
+            }
+
+            for (var i = 0; i < travelerIcons.Count; i++)
+            {
+                travelerIcons[i].transform.SetAsLastSibling();
+                if (i < moves.Count)
+                {
+                    var move = moves[i];
+                    var positions = new List<Vector2>(move.PathSlotIndices.Count);
+                    foreach (var slotIndex in move.PathSlotIndices)
+                    {
+                        positions.Add(GetSlotAnchoredPosition(slotIndex));
+                    }
+                    var traveler = travelerIcons[i];
+                    traveler.gameObject.SetActive(true);
+                    traveler.sprite = move.Icon;
+                    traveler.enabled = move.Icon != null;
+                    ((RectTransform)traveler.transform).anchoredPosition = FormationPathInterpolation.Evaluate(positions, move.Progress01);
+                }
+                else
+                {
+                    travelerIcons[i].gameObject.SetActive(false);
+                }
+            }
         }
 
         // 슬롯 개수(SlotCount)가 이전 빌드와 같으면 파괴 후 재생성 대신 기존 슬롯에 콜백만 다시

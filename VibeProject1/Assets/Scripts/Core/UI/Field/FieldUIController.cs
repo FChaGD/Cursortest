@@ -15,6 +15,7 @@ namespace Game.Core
         [SerializeField] private Sprite backgroundSprite;
         [SerializeField] private BattleCharacterUnitView battleCharacterViewPrefab;
         [SerializeField] private BattleProtectedUnitView battleProtectedViewPrefab;
+        [SerializeField] private BattlePendingReinforcementView battlePendingReinforcementViewPrefab;
 
         /// <summary>
         /// Hub↔Field 씬 전환 연출(SceneTransitionEffectController)이 슬라이드시킬 대상. Field는 이번
@@ -49,8 +50,12 @@ namespace Game.Core
         // 21번 §7) - 없어도(TryResolve 실패) 상행 진행 자체는 정상 동작한다(null-조건부 호출).
         private ITripCurrentLocationRepository currentLocationRepository;
         private ITripDestinationAssigner destinationAssigner;
+        // 도착(상행 종료) 시점에 진행 중이던 Field 배치/이동을 즉시 도착지로 확정하는 데 쓴다(HandleArrived) -
+        // 그러지 않으면 이동 중이던 유닛의 FormationLayout이 여전히 출발 슬롯에 남아 있어(설계 25번 §3.2)
+        // Hub 진입 시 출발지로 되돌아간 것처럼 보이는 버그가 있었다(실전 확인, 2026-09-06).
+        private IFieldFormationActivityRepository fieldActivityRepository;
 
-        public void RegisterFieldUI(IUIManager uiManager, ISessionState sessionState, IEncounterManager encounterManager, IBattleController battleController, IBattleResultSource battleResultSource, IDefeatConsequenceSource defeatConsequenceSource, IBattleSimulationEvents battleSimulationEvents, IGameManager gameManager, ISceneRevealSignal sceneRevealSignal, IUnitConditionRepository unitConditionRepository, ITripCurrentLocationRepository currentLocationRepository, ITripDestinationAssigner destinationAssigner)
+        public void RegisterFieldUI(IUIManager uiManager, ISessionState sessionState, IEncounterManager encounterManager, IBattleController battleController, IBattleResultSource battleResultSource, IDefeatConsequenceSource defeatConsequenceSource, IBattleSimulationEvents battleSimulationEvents, IGameManager gameManager, ISceneRevealSignal sceneRevealSignal, IUnitConditionRepository unitConditionRepository, ITripCurrentLocationRepository currentLocationRepository, ITripDestinationAssigner destinationAssigner, IFieldFormationActivityRepository fieldActivityRepository)
         {
             var fieldScene = SceneManager.GetSceneByName(SceneNames.Field);
             if (!fieldScene.IsValid())
@@ -86,6 +91,7 @@ namespace Game.Core
             this.unitConditionRepository = unitConditionRepository;
             this.currentLocationRepository = currentLocationRepository;
             this.destinationAssigner = destinationAssigner;
+            this.fieldActivityRepository = fieldActivityRepository;
 
             formationButton.onClick.RemoveAllListeners();
             formationButton.onClick.AddListener(() => uiManager.Open(UIPanelIds.Formation));
@@ -113,7 +119,7 @@ namespace Game.Core
             // (Docs/설계/04-2026-08-25-Field씬_아키텍처.md §5.2). cameraController는 이번 Field 씬의 뷰 참조를
             // 담고 있어 매번 새로 만든다.
             flowCoordinator ??= new FieldEncounterFlowCoordinator();
-            flowCoordinator.Bind(uiManager, sessionState, encounterManager, battleController, battleResultSource, defeatConsequenceSource, gameManager);
+            flowCoordinator.Bind(uiManager, sessionState, encounterManager, battleController, battleResultSource, defeatConsequenceSource, gameManager, fieldActivityRepository);
             var cameraController = new FieldCameraController(this, movementViewRoot, battleViewRoot, battleWorldRoot.gameObject, transitionCurtain);
             flowCoordinator.RebindViews(this, cameraController, warningView, resultPopupView, transitionCurtain);
 
@@ -122,7 +128,7 @@ namespace Game.Core
             // 유닛 레이어/프리팹 참조)는 Field 씬을 로드할 때마다 실행한다.
             viewPresenter ??= new BattleViewPresenter();
             viewPresenter.Bind(battleSimulationEvents);
-            viewPresenter.RebindViews(battleAllyLayer, battleEnemyLayer, battleCharacterViewPrefab, battleProtectedViewPrefab, battleCameraView, battleBackgroundView);
+            viewPresenter.RebindViews(battleAllyLayer, battleEnemyLayer, battleCharacterViewPrefab, battleProtectedViewPrefab, battlePendingReinforcementViewPrefab, battleCameraView, battleBackgroundView);
 
             // sessionState.Begin()은 여기서 바로 부르지 않는다 - 화면이 완전히 드러난 뒤(HandleSceneRevealed)에
             // 시작해야 "전투 시작" 준비(=상행 진행 시작)가 페이드 아웃 완료 이후로 미뤄진다(사용자 확정).
@@ -150,6 +156,7 @@ namespace Game.Core
         // 재사용한다(문구·버튼 라벨·콜백만 다름).
         private void HandleArrived()
         {
+            fieldActivityRepository?.ForceCompleteAll(); // 이동 중이던 배치를 도착지로 즉시 확정(위 필드 선언부 주석 참고)
             unitConditionRepository?.ResetAllToFull(); // 상행 종료(허브 복귀) = 전원 회복(기획 13번 §4-3, 사용자 확정)
 
             // "현재 위치"를 이번 상행의 도착지로 갱신한다(기획 16번 §4) - 빌드에서는 도착지를 고를

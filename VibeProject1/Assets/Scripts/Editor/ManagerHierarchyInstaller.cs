@@ -77,9 +77,16 @@ namespace Game.Core.Editor
             // "디버그 도구 켜고 끄기"는 다른 관심사라 DebugBootstrapReentryGuard와 같은 자리
             // (Tools/Game/Debug/, BattleGizmoInstaller.cs)에서 별도 Install/Remove 메뉴로 관리한다.
 
-            // HubUIController/FormationPanel/TripPanel/TacticsPanel/FieldUIController는 전역 매니저가 아니라 UIManager 산하 컴포넌트이므로 같은 GameObject에 부착한다.
+            // HubFormationPanel/FieldFormationPanel(구 FormationPanel, Docs/설계/25번 §2.3 Hub/Field
+            // 분리) 등으로 이름이 바뀌며 남은 옛 컴포넌트 슬롯을 정리한다 - 스크립트가 삭제됐어도
+            // GameObject엔 "Missing Script" 슬롯이 남아있을 수 있다.
+            GameObjectUtility.RemoveMonoBehavioursWithMissingScript(uiManager.gameObject);
+
+            // HubUIController/HubFormationPanel/FieldFormationPanel/TripPanel/TacticsPanel/FieldUIController는
+            // 전역 매니저가 아니라 UIManager 산하 컴포넌트이므로 같은 GameObject에 부착한다.
             EnsureSiblingComponent<HubUIController>(uiManager.gameObject);
-            EnsureSiblingComponent<FormationPanel>(uiManager.gameObject);
+            EnsureSiblingComponent<HubFormationPanel>(uiManager.gameObject);
+            EnsureSiblingComponent<FieldFormationPanel>(uiManager.gameObject);
             EnsureSiblingComponent<TripPanel>(uiManager.gameObject);
             var tacticsPanel = EnsureSiblingComponent<TacticsPanel>(uiManager.gameObject);
             WirePartyPolicyCatalog(tacticsPanel);
@@ -125,6 +132,11 @@ namespace Game.Core.Editor
             var tripCurrentLocationRepository = EditorUIBuilder.GetOrCreateManager<InMemoryTripCurrentLocationRepository>(root.transform, "InMemoryTripCurrentLocationRepository");
             var tripDestinationAssigner = EditorUIBuilder.GetOrCreateManager<TripDestinationAssigner>(root.transform, "TripDestinationAssigner");
 
+            // 상행 중(Field) 정비창 배치/이동 소요시간 진행 상태(기획 20번, 설계 25번) - formationRepository와
+            // 같은 성격의 인메모리 저장소. ResolveDependencies에서 IFormationRepository를 TryResolve하므로
+            // formationRepository보다 뒤에 둔다(가독성 목적 - 실제 순서 의존성은 없다).
+            var fieldFormationActivityRepository = EditorUIBuilder.GetOrCreateManager<InMemoryFieldFormationActivityRepository>(root.transform, "InMemoryFieldFormationActivityRepository");
+
             SyncManagedComponents(dependencyManager, new MonoBehaviour[]
             {
                 gameManager,
@@ -146,6 +158,7 @@ namespace Game.Core.Editor
                 placeholderTripInfoProvider,
                 tripCurrentLocationRepository,
                 tripDestinationAssigner,
+                fieldFormationActivityRepository,
             });
 
             EditorSceneManager.MarkSceneDirty(root.scene);
@@ -199,6 +212,7 @@ namespace Game.Core.Editor
             var so = new SerializedObject(fieldUIController);
             so.FindProperty("battleCharacterViewPrefab").objectReferenceValue = EditorUIBuilder.GetOrCreateBattleCharacterViewPrefab();
             so.FindProperty("battleProtectedViewPrefab").objectReferenceValue = EditorUIBuilder.GetOrCreateBattleProtectedViewPrefab();
+            so.FindProperty("battlePendingReinforcementViewPrefab").objectReferenceValue = EditorUIBuilder.GetOrCreateBattlePendingReinforcementViewPrefab();
             so.ApplyModifiedProperties();
         }
 
