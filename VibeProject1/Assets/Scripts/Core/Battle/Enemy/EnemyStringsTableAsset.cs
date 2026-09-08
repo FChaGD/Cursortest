@@ -15,13 +15,10 @@ namespace Game.Core
 
         public bool TryGetLabel(EnemyType enemyType, out string ko)
         {
-            foreach (var entry in strings)
+            if (TableEntryLookup.TryFind(strings, (int)enemyType, e => e.Id, out var entry))
             {
-                if (entry.Id == (int)enemyType)
-                {
-                    ko = entry.Ko;
-                    return true;
-                }
+                ko = entry.Ko;
+                return true;
             }
 
             ko = null;

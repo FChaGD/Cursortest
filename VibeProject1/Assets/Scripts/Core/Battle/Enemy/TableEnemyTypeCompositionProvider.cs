@@ -14,8 +14,11 @@ namespace Game.Core
     /// </summary>
     public class TableEnemyTypeCompositionProvider : IEnemyCompositionProvider
     {
-        // Random.Range의 max는 배타적 - 기획 14번 §2가 CountMax를 포함 상한으로 정했으므로 +1 보정.
-        private static readonly EnemyType[] AllTypes = { EnemyType.Marauder, EnemyType.Monster, EnemyType.Adversary };
+        // EnemyType enum 값을 그대로 반영한다(Enum.GetValues) - 하드코딩 배열로 따로 나열하면 enum에
+        // 새 값이 추가돼도 여기 반영을 잊을 수 있어 조용히 그 타입이 인카운터 후보에서 빠진다
+        // (Docs/Refactor/2026-09-08_전투도메인.md ① 수정 P). Random.Range의 max는 배타적 - 기획 14번
+        // §2가 CountMax를 포함 상한으로 정했으므로 +1 보정.
+        private static readonly EnemyType[] AllTypes = (EnemyType[])Enum.GetValues(typeof(EnemyType));
 
         private readonly EnemyStatsTableAsset statsTable;
         private readonly EnemyEncounterCompositionTableAsset compositionTable;

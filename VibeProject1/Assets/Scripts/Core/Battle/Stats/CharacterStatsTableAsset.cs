@@ -29,19 +29,7 @@ namespace Game.Core
         [SerializeField] private List<CharacterStatsEntry> entries = new();
 
         public bool TryGetEntry(MercenaryClass mercenaryClass, out CharacterStatsEntry entry)
-        {
-            foreach (var candidate in entries)
-            {
-                if (candidate.MercenaryClass == mercenaryClass)
-                {
-                    entry = candidate;
-                    return true;
-                }
-            }
-
-            entry = default;
-            return false;
-        }
+            => TableEntryLookup.TryFind(entries, mercenaryClass, e => e.MercenaryClass, out entry);
 
         public IReadOnlyList<CharacterStatsEntry> Entries => entries;
     }

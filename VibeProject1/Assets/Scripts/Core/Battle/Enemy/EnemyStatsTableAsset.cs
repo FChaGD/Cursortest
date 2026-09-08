@@ -29,19 +29,7 @@ namespace Game.Core
         [SerializeField] private List<EnemyStatsEntry> entries = new();
 
         public bool TryGetEntry(EnemyType enemyType, out EnemyStatsEntry entry)
-        {
-            foreach (var candidate in entries)
-            {
-                if (candidate.EnemyType == enemyType)
-                {
-                    entry = candidate;
-                    return true;
-                }
-            }
-
-            entry = default;
-            return false;
-        }
+            => TableEntryLookup.TryFind(entries, enemyType, e => e.EnemyType, out entry);
 
         public IReadOnlyList<EnemyStatsEntry> Entries => entries;
     }
