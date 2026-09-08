@@ -26,16 +26,7 @@ namespace Game.Core.Editor.DebugTools
     {
         private const string SceneName = "BattleTest";
         private const string ScenePath = "Assets/Scenes/" + SceneName + ".unity";
-        private const string RoleGroupMapAssetPath = "Assets/Prefabs/ScriptableObejct/MercenaryRoleGroupMap.asset";
-        private const string TacticsCatalogAssetPath = "Assets/Prefabs/ScriptableObejct/RoleGroupTacticsCatalog.asset";
-        // CharacterStatsTableImporter가 만드는 에셋과 같은 경로(Docs/설계/17번 §4/§6).
-        private const string CharacterStatsTableAssetPath = "Assets/Prefabs/ScriptableObejct/CharacterStatsTable.asset";
-        private const string EnemyStatsTableAssetPath = "Assets/Prefabs/ScriptableObejct/EnemyStatsTable.asset";
-        private const string EnemyEncounterCompositionTableAssetPath = "Assets/Prefabs/ScriptableObejct/EnemyEncounterCompositionTable.asset";
-        private const string PartyPolicyCatalogAssetPath = "Assets/Prefabs/ScriptableObejct/PartyTacticsPolicyCatalog.asset";
-        // PartyPolicyTableImporter/RoleGroupTacticsTableImporter가 만드는 에셋과 같은 경로(Docs/설계/18번 §8.2).
-        private const string PartyPolicyStringsTableAssetPath = "Assets/Prefabs/ScriptableObejct/PartyTacticsPolicyStringsTable.asset";
-        private const string RoleGroupTacticsStringsTableAssetPath = "Assets/Prefabs/ScriptableObejct/RoleGroupTacticsStringsTable.asset";
+        // 자산 경로는 전부 TableAssetPaths(단일 소스, Docs/Refactor/2026-09-08_공통.md 확장성 문제점 1)를 참조한다.
 
         [MenuItem("Tools/Game/Debug/Build Battle Test Scene")]
         public static void BuildBattleTestScene()
@@ -702,10 +693,10 @@ namespace Game.Core.Editor.DebugTools
         // 연결한다(에셋 하나뿐이라 경로가 고정적, 안 하면 방향성 지시 없이 폴백 동작만 검증된다).
         private static void WireRoleGroupMap(BattleTestSimulationRule rule)
         {
-            var asset = AssetDatabase.LoadAssetAtPath<MercenaryRoleGroupMapAsset>(RoleGroupMapAssetPath);
+            var asset = AssetDatabase.LoadAssetAtPath<MercenaryRoleGroupMapAsset>(TableAssetPaths.MercenaryRoleGroupMap);
             if (asset == null)
             {
-                Debug.LogWarning($"'{RoleGroupMapAssetPath}'를 찾을 수 없어 roleGroupMap을 연결하지 못했다.");
+                Debug.LogWarning($"'{TableAssetPaths.MercenaryRoleGroupMap}'를 찾을 수 없어 roleGroupMap을 연결하지 못했다.");
                 return;
             }
 
@@ -720,9 +711,9 @@ namespace Game.Core.Editor.DebugTools
         private static void WireCharacterStatsTables(BattleTestSimulationRule rule)
         {
             var so = new SerializedObject(rule);
-            so.FindProperty("characterStatsTable").objectReferenceValue = AssetDatabase.LoadAssetAtPath<CharacterStatsTableAsset>(CharacterStatsTableAssetPath);
-            so.FindProperty("enemyStatsTable").objectReferenceValue = AssetDatabase.LoadAssetAtPath<EnemyStatsTableAsset>(EnemyStatsTableAssetPath);
-            so.FindProperty("enemyEncounterCompositionTable").objectReferenceValue = AssetDatabase.LoadAssetAtPath<EnemyEncounterCompositionTableAsset>(EnemyEncounterCompositionTableAssetPath);
+            so.FindProperty("characterStatsTable").objectReferenceValue = AssetDatabase.LoadAssetAtPath<CharacterStatsTableAsset>(TableAssetPaths.CharacterStatsTable);
+            so.FindProperty("enemyStatsTable").objectReferenceValue = AssetDatabase.LoadAssetAtPath<EnemyStatsTableAsset>(TableAssetPaths.EnemyStatsTable);
+            so.FindProperty("enemyEncounterCompositionTable").objectReferenceValue = AssetDatabase.LoadAssetAtPath<EnemyEncounterCompositionTableAsset>(TableAssetPaths.EnemyEncounterCompositionTable);
             so.ApplyModifiedProperties();
         }
 
@@ -731,14 +722,14 @@ namespace Game.Core.Editor.DebugTools
         private static void WirePartyPolicyCatalog(TacticsPanel panel)
         {
             var so = new SerializedObject(panel);
-            so.FindProperty("partyPolicyCatalog").objectReferenceValue = AssetDatabase.LoadAssetAtPath<PartyTacticsPolicyCatalogAsset>(PartyPolicyCatalogAssetPath);
+            so.FindProperty("partyPolicyCatalog").objectReferenceValue = AssetDatabase.LoadAssetAtPath<PartyTacticsPolicyCatalogAsset>(TableAssetPaths.PartyPolicyCatalog);
             so.ApplyModifiedProperties();
         }
 
         private static void WirePartyPolicyCatalog(InMemoryTacticsRepository repository)
         {
             var so = new SerializedObject(repository);
-            so.FindProperty("partyPolicyCatalog").objectReferenceValue = AssetDatabase.LoadAssetAtPath<PartyTacticsPolicyCatalogAsset>(PartyPolicyCatalogAssetPath);
+            so.FindProperty("partyPolicyCatalog").objectReferenceValue = AssetDatabase.LoadAssetAtPath<PartyTacticsPolicyCatalogAsset>(TableAssetPaths.PartyPolicyCatalog);
             so.ApplyModifiedProperties();
         }
 
@@ -747,8 +738,8 @@ namespace Game.Core.Editor.DebugTools
         private static void WireTacticsStringTables(TacticsPanel panel)
         {
             var so = new SerializedObject(panel);
-            so.FindProperty("partyPolicyStrings").objectReferenceValue = AssetDatabase.LoadAssetAtPath<PartyTacticsPolicyStringsTableAsset>(PartyPolicyStringsTableAssetPath);
-            so.FindProperty("roleGroupTacticsStrings").objectReferenceValue = AssetDatabase.LoadAssetAtPath<RoleGroupTacticsStringsTableAsset>(RoleGroupTacticsStringsTableAssetPath);
+            so.FindProperty("partyPolicyStrings").objectReferenceValue = AssetDatabase.LoadAssetAtPath<PartyTacticsPolicyStringsTableAsset>(TableAssetPaths.PartyPolicyStringsTable);
+            so.FindProperty("roleGroupTacticsStrings").objectReferenceValue = AssetDatabase.LoadAssetAtPath<RoleGroupTacticsStringsTableAsset>(TableAssetPaths.RoleGroupTacticsStringsTable);
             so.ApplyModifiedProperties();
         }
 
@@ -782,10 +773,10 @@ namespace Game.Core.Editor.DebugTools
 
         private static RoleGroupTacticsCatalogAsset LoadTacticsCatalogAsset()
         {
-            var asset = AssetDatabase.LoadAssetAtPath<RoleGroupTacticsCatalogAsset>(TacticsCatalogAssetPath);
+            var asset = AssetDatabase.LoadAssetAtPath<RoleGroupTacticsCatalogAsset>(TableAssetPaths.RoleGroupTacticsCatalog);
             if (asset == null)
             {
-                Debug.LogWarning($"'{TacticsCatalogAssetPath}'를 찾을 수 없어 catalog를 연결하지 못했다.");
+                Debug.LogWarning($"'{TableAssetPaths.RoleGroupTacticsCatalog}'를 찾을 수 없어 catalog를 연결하지 못했다.");
             }
             return asset;
         }

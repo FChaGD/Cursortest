@@ -18,8 +18,6 @@ namespace Game.Core.Editor
     public static class PartyPolicyTableImporter
     {
         private const string WorkbookRelativePath = "Tactics/PartyPolicy.xlsx";
-        private const string CatalogAssetPath = "Assets/Prefabs/ScriptableObejct/PartyTacticsPolicyCatalog.asset";
-        private const string StringsTableAssetPath = "Assets/Prefabs/ScriptableObejct/PartyTacticsPolicyStringsTable.asset";
 
         [MenuItem("Tools/Game/Table/Import Party Policy")]
         public static void Import()
@@ -47,7 +45,7 @@ namespace Game.Core.Editor
         // 중단한다(Docs/설계/17번 §10.4/§10.6 - v2에서도 동일 규칙 유지).
         private static bool ImportCatalog(string workbookPath)
         {
-            var asset = EditorTableReader.GetOrCreateAsset<PartyTacticsPolicyCatalogAsset>(CatalogAssetPath);
+            var asset = EditorTableReader.GetOrCreateAsset<PartyTacticsPolicyCatalogAsset>(TableAssetPaths.PartyPolicyCatalog);
 
             var recognitionOptions = ReadOptionsSortedBySortOrder<EnemyRecognitionType>(EditorTableReader.ReadSheet(workbookPath, "PartyRecognitionOptions"));
             var radiusOptions = ReadOptionsSortedBySortOrder<ActivityRadiusPreset>(EditorTableReader.ReadSheet(workbookPath, "PartyRadiusOptions"));
@@ -107,7 +105,7 @@ namespace Game.Core.Editor
 
         private static void ImportStrings(string workbookPath)
         {
-            var asset = EditorTableReader.GetOrCreateAsset<PartyTacticsPolicyStringsTableAsset>(StringsTableAssetPath);
+            var asset = EditorTableReader.GetOrCreateAsset<PartyTacticsPolicyStringsTableAsset>(TableAssetPaths.PartyPolicyStringsTable);
             var so = new SerializedObject(asset);
             WriteStringList(so.FindProperty("recognitionStrings"), EditorTableReader.ReadSheet(workbookPath, "PartyRecognitionStrings"));
             WriteStringList(so.FindProperty("radiusStrings"), EditorTableReader.ReadSheet(workbookPath, "PartyRadiusStrings"));

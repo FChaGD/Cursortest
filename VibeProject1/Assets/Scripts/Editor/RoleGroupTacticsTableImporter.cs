@@ -22,9 +22,6 @@ namespace Game.Core.Editor
     public static class RoleGroupTacticsTableImporter
     {
         private const string WorkbookRelativePath = "Tactics/RoleGroupTactics.xlsx";
-        private const string RoleGroupMapAssetPath = "Assets/Prefabs/ScriptableObejct/MercenaryRoleGroupMap.asset";
-        private const string TacticsCatalogAssetPath = "Assets/Prefabs/ScriptableObejct/RoleGroupTacticsCatalog.asset";
-        private const string StringsTableAssetPath = "Assets/Prefabs/ScriptableObejct/RoleGroupTacticsStringsTable.asset";
 
         [MenuItem("Tools/Game/Table/Import Role Group Tactics")]
         public static void Import()
@@ -49,10 +46,10 @@ namespace Game.Core.Editor
 
         private static bool ImportRoleGroupMap(string workbookPath)
         {
-            var asset = AssetDatabase.LoadAssetAtPath<MercenaryRoleGroupMapAsset>(RoleGroupMapAssetPath);
+            var asset = AssetDatabase.LoadAssetAtPath<MercenaryRoleGroupMapAsset>(TableAssetPaths.MercenaryRoleGroupMap);
             if (asset == null)
             {
-                Debug.LogError($"{nameof(RoleGroupTacticsTableImporter)}: '{RoleGroupMapAssetPath}' 에셋을 찾을 수 없다.");
+                Debug.LogError($"{nameof(RoleGroupTacticsTableImporter)}: '{TableAssetPaths.MercenaryRoleGroupMap}' 에셋을 찾을 수 없다.");
                 return false;
             }
 
@@ -73,10 +70,10 @@ namespace Game.Core.Editor
 
         private static bool ImportTacticsCatalog(string workbookPath)
         {
-            var asset = AssetDatabase.LoadAssetAtPath<RoleGroupTacticsCatalogAsset>(TacticsCatalogAssetPath);
+            var asset = AssetDatabase.LoadAssetAtPath<RoleGroupTacticsCatalogAsset>(TableAssetPaths.RoleGroupTacticsCatalog);
             if (asset == null)
             {
-                Debug.LogError($"{nameof(RoleGroupTacticsTableImporter)}: '{TacticsCatalogAssetPath}' 에셋을 찾을 수 없다.");
+                Debug.LogError($"{nameof(RoleGroupTacticsTableImporter)}: '{TableAssetPaths.RoleGroupTacticsCatalog}' 에셋을 찾을 수 없다.");
                 return false;
             }
 
@@ -156,7 +153,7 @@ namespace Game.Core.Editor
 
         private static void ImportStrings(string workbookPath)
         {
-            var asset = EditorTableReader.GetOrCreateAsset<RoleGroupTacticsStringsTableAsset>(StringsTableAssetPath);
+            var asset = EditorTableReader.GetOrCreateAsset<RoleGroupTacticsStringsTableAsset>(TableAssetPaths.RoleGroupTacticsStringsTable);
             var so = new SerializedObject(asset);
             WriteStringList(so.FindProperty("targetPriorityStrings"), EditorTableReader.ReadSheet(workbookPath, "TargetPriorityStrings"));
             WriteStringList(so.FindProperty("positioningStrings"), EditorTableReader.ReadSheet(workbookPath, "PositioningStrings"));

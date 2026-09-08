@@ -15,7 +15,6 @@ namespace Game.Core.Editor
     public static class EnemyStatsTableImporter
     {
         private const string WorkbookRelativePath = "Enemy/EnemyStats.xlsx";
-        private const string AssetFolder = "Assets/Prefabs/ScriptableObejct";
 
         [MenuItem("Tools/Game/Table/Import Enemy Stats")]
         public static void Import()
@@ -55,7 +54,7 @@ namespace Game.Core.Editor
                 });
             }
 
-            var asset = EditorTableReader.GetOrCreateAsset<EnemyStatsTableAsset>($"{AssetFolder}/EnemyStatsTable.asset");
+            var asset = EditorTableReader.GetOrCreateAsset<EnemyStatsTableAsset>(TableAssetPaths.EnemyStatsTable);
             var so = new SerializedObject(asset);
             var entriesProp = so.FindProperty("entries");
             entriesProp.arraySize = entries.Count;
@@ -91,7 +90,7 @@ namespace Game.Core.Editor
                 });
             }
 
-            var asset = EditorTableReader.GetOrCreateAsset<EnemyEncounterCompositionTableAsset>($"{AssetFolder}/EnemyEncounterCompositionTable.asset");
+            var asset = EditorTableReader.GetOrCreateAsset<EnemyEncounterCompositionTableAsset>(TableAssetPaths.EnemyEncounterCompositionTable);
             var so = new SerializedObject(asset);
             var entriesProp = so.FindProperty("entries");
             entriesProp.arraySize = entries.Count;
@@ -110,7 +109,7 @@ namespace Game.Core.Editor
         private static void ImportEnemyStrings(string workbookPath)
         {
             var rows = EditorTableReader.ReadSheet(workbookPath, "EnemyStrings");
-            var asset = EditorTableReader.GetOrCreateAsset<EnemyStringsTableAsset>($"{AssetFolder}/EnemyStringsTable.asset");
+            var asset = EditorTableReader.GetOrCreateAsset<EnemyStringsTableAsset>(TableAssetPaths.EnemyStringsTable);
             var so = new SerializedObject(asset);
             var stringsProp = so.FindProperty("strings");
             stringsProp.arraySize = rows.Count;

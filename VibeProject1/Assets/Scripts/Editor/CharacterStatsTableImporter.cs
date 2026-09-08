@@ -16,7 +16,6 @@ namespace Game.Core.Editor
     public static class CharacterStatsTableImporter
     {
         private const string WorkbookRelativePath = "Character/CharacterStats.xlsx";
-        private const string AssetFolder = "Assets/Prefabs/ScriptableObejct";
 
         [MenuItem("Tools/Game/Table/Import Character Stats")]
         public static void Import()
@@ -54,7 +53,7 @@ namespace Game.Core.Editor
                 });
             }
 
-            var asset = EditorTableReader.GetOrCreateAsset<CharacterStatsTableAsset>($"{AssetFolder}/CharacterStatsTable.asset");
+            var asset = EditorTableReader.GetOrCreateAsset<CharacterStatsTableAsset>(TableAssetPaths.CharacterStatsTable);
             var so = new SerializedObject(asset);
             var entriesProp = so.FindProperty("entries");
             entriesProp.arraySize = entries.Count;
@@ -78,7 +77,7 @@ namespace Game.Core.Editor
         private static void ImportCharacterStrings(string workbookPath)
         {
             var rows = EditorTableReader.ReadSheet(workbookPath, "CharacterStrings");
-            var asset = EditorTableReader.GetOrCreateAsset<CharacterStringsTableAsset>($"{AssetFolder}/CharacterStringsTable.asset");
+            var asset = EditorTableReader.GetOrCreateAsset<CharacterStringsTableAsset>(TableAssetPaths.CharacterStringsTable);
             var so = new SerializedObject(asset);
             var stringsProp = so.FindProperty("strings");
             stringsProp.arraySize = rows.Count;

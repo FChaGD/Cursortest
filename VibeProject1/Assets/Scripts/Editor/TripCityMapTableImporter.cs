@@ -20,8 +20,6 @@ namespace Game.Core.Editor
     public static class TripCityMapTableImporter
     {
         private const string WorkbookRelativePath = "Trip/TripCityMap.xlsx";
-        private const string AssetPath = "Assets/Prefabs/ScriptableObejct/TripCityMap.asset";
-        private const string StringsAssetPath = "Assets/Prefabs/ScriptableObejct/TripCityStringsTable.asset";
 
         [MenuItem("Tools/Game/Table/Import Trip City Map")]
         public static void Import()
@@ -44,7 +42,7 @@ namespace Game.Core.Editor
             var cityRows = EditorTableReader.ReadSheet(workbookPath, "TripCities");
             var routeRows = EditorTableReader.ReadSheet(workbookPath, "TripRoutes");
 
-            var asset = EditorTableReader.GetOrCreateAsset<TripCityMapAsset>(AssetPath);
+            var asset = EditorTableReader.GetOrCreateAsset<TripCityMapAsset>(TableAssetPaths.TripCityMap);
             var so = new SerializedObject(asset);
 
             var citiesProp = so.FindProperty("cities");
@@ -78,7 +76,7 @@ namespace Game.Core.Editor
         private static void ImportStrings(string workbookPath)
         {
             var rows = EditorTableReader.ReadSheet(workbookPath, "TripCityStrings");
-            var asset = EditorTableReader.GetOrCreateAsset<TripCityStringsTableAsset>(StringsAssetPath);
+            var asset = EditorTableReader.GetOrCreateAsset<TripCityStringsTableAsset>(TableAssetPaths.TripCityStringsTable);
             var so = new SerializedObject(asset);
 
             var entriesProp = so.FindProperty("entries");

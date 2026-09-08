@@ -9,11 +9,14 @@ namespace Game.Core
     /// IFieldFormationActivityRepository의 인메모리 구현(Docs/설계/25번 §3.2). InMemoryFormationRepository와
     /// 같은 성격의 Bootstrap 상주 저장소이지만, 저것과 달리 Update()에서 매 프레임 진행률을 스스로
     /// 갱신한다 - 정비창 UI가 닫혀 있어도(Field 패널이 비활성 상태여도) 배치/이동이 계속 흐르게 하는
-    /// 핵심 지점(기획 20번 §1 전제 2).
+    /// 핵심 지점(기획 20번 §1 전제 2). unitId 기준 조회는 activitiesByUnitId(Dictionary)로 O(1) 처리하고,
+    /// activities(List)는 Update()의 역순 순회/제거와 ActiveActivities 노출 순서를 위해 병행 유지한다
+    /// (리팩토링 점검 2026-09-08 §2-1 - 예전엔 List만 있어 unitId 조회가 전부 LINQ 선형 탐색이었다).
     /// </summary>
     public class InMemoryFieldFormationActivityRepository : MonoBehaviour, IFieldFormationActivityRepository, IManagedComponent
     {
         private readonly List<FormationActivity> activities = new();
+        private readonly Dictionary<string, FormationActivity> activitiesByUnitId = new();
         private IFormationRepository formationRepository;
 
         public event Action<FormationActivity> OnActivityCompleted;
@@ -31,23 +34,19 @@ namespace Game.Core
             registrar.TryResolve<IFormationRepository>(out formationRepository);
         }
 
-        public bool TryGetActivity(string unitId, out FormationActivity activity)
-        {
-            activity = activities.FirstOrDefault(a => a.UnitId == unitId);
-            return activity != null;
-        }
+        public bool TryGetActivity(string unitId, out FormationActivity activity) => activitiesByUnitId.TryGetValue(unitId, out activity);
 
         public bool IsSlotReserved(int slotIndex) => activities.Any(a => a.TargetSlotIndex == slotIndex);
-        public bool IsUnitBusy(string unitId) => activities.Any(a => a.UnitId == unitId);
+        public bool IsUnitBusy(string unitId) => activitiesByUnitId.ContainsKey(unitId);
 
         public void BeginAdd(string unitId, int targetSlotIndex, float requiredSeconds)
         {
-            activities.Add(new FormationActivity(unitId, FormationActivityKind.Adding, targetSlotIndex, FormationActivity.NoSlot, Array.Empty<int>(), requiredSeconds));
+            Add(new FormationActivity(unitId, FormationActivityKind.Adding, targetSlotIndex, FormationActivity.NoSlot, Array.Empty<int>(), requiredSeconds));
         }
 
         public void BeginMove(string unitId, int originSlotIndex, int targetSlotIndex, IReadOnlyList<int> pathSlotIndices, float requiredSeconds)
         {
-            activities.Add(new FormationActivity(unitId, FormationActivityKind.Moving, targetSlotIndex, originSlotIndex, pathSlotIndices, requiredSeconds));
+            Add(new FormationActivity(unitId, FormationActivityKind.Moving, targetSlotIndex, originSlotIndex, pathSlotIndices, requiredSeconds));
         }
 
         // Cancel+BeginMove를 쓰지 않는다 - BeginMove는 항상 ElapsedSeconds=0으로 시작해 이미 지나온
@@ -55,27 +54,36 @@ namespace Game.Core
         // 같은 어셈블리인 여기서 생성 직후 대입할 수 있어 별도 생성자 오버로드가 필요 없다.
         public void RedirectMove(string unitId, int newTargetSlotIndex, IReadOnlyList<int> pathSlotIndices, float requiredSeconds, float elapsedSeconds, int partialSegmentIndex, float partialSegmentWeight)
         {
-            var index = activities.FindIndex(a => a.UnitId == unitId && a.Kind == FormationActivityKind.Moving);
-            if (index < 0) return;
+            if (!activitiesByUnitId.TryGetValue(unitId, out var current) || current.Kind != FormationActivityKind.Moving) return;
 
-            var originSlotIndex = activities[index].OriginSlotIndex;
-            activities.RemoveAt(index);
-            var activity = new FormationActivity(unitId, FormationActivityKind.Moving, newTargetSlotIndex, originSlotIndex, pathSlotIndices, requiredSeconds)
+            RemoveFromCollections(current);
+            var activity = new FormationActivity(unitId, FormationActivityKind.Moving, newTargetSlotIndex, current.OriginSlotIndex, pathSlotIndices, requiredSeconds)
             {
                 ElapsedSeconds = elapsedSeconds,
                 PartialSegmentIndex = partialSegmentIndex,
                 PartialSegmentWeight = partialSegmentWeight
             };
-            activities.Add(activity);
+            Add(activity);
         }
 
         public void Cancel(string unitId)
         {
-            var index = activities.FindIndex(a => a.UnitId == unitId);
-            if (index < 0) return;
+            if (!activitiesByUnitId.TryGetValue(unitId, out var activity)) return;
 
-            activities.RemoveAt(index);
+            RemoveFromCollections(activity);
             OnActivityCancelled?.Invoke(unitId);
+        }
+
+        private void Add(FormationActivity activity)
+        {
+            activities.Add(activity);
+            activitiesByUnitId[activity.UnitId] = activity;
+        }
+
+        private void RemoveFromCollections(FormationActivity activity)
+        {
+            activities.Remove(activity);
+            activitiesByUnitId.Remove(activity.UnitId);
         }
 
         public void PauseAll()
@@ -123,7 +131,7 @@ namespace Game.Core
 
         private void Complete(FormationActivity activity)
         {
-            activities.Remove(activity);
+            RemoveFromCollections(activity);
             ApplyToLayout(activity);
             OnActivityCompleted?.Invoke(activity);
         }
