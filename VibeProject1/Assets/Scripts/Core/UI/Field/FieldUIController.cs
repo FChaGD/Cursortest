@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace Game.Core
@@ -55,31 +54,8 @@ namespace Game.Core
         // Hub 진입 시 출발지로 되돌아간 것처럼 보이는 버그가 있었다(실전 확인, 2026-09-06).
         private IFieldFormationActivityRepository fieldActivityRepository;
 
-        public void RegisterFieldUI(IUIManager uiManager, ISessionState sessionState, IEncounterManager encounterManager, IBattleController battleController, IBattleResultSource battleResultSource, IDefeatConsequenceSource defeatConsequenceSource, IBattleSimulationEvents battleSimulationEvents, IGameManager gameManager, ISceneRevealSignal sceneRevealSignal, IUnitConditionRepository unitConditionRepository, ITripCurrentLocationRepository currentLocationRepository, ITripDestinationAssigner destinationAssigner, IFieldFormationActivityRepository fieldActivityRepository)
+        public void RegisterFieldUI(SceneUIRoot sceneUIRoot, IUIManager uiManager, ISessionState sessionState, IEncounterManager encounterManager, IBattleController battleController, IBattleResultSource battleResultSource, IDefeatConsequenceSource defeatConsequenceSource, IBattleSimulationEvents battleSimulationEvents, IGameManager gameManager, ISceneRevealSignal sceneRevealSignal, IUnitConditionRepository unitConditionRepository, ITripCurrentLocationRepository currentLocationRepository, ITripDestinationAssigner destinationAssigner, IFieldFormationActivityRepository fieldActivityRepository)
         {
-            var fieldScene = SceneManager.GetSceneByName(SceneNames.Field);
-            if (!fieldScene.IsValid())
-            {
-                Debug.LogWarning($"'{SceneNames.Field}' 씬을 찾을 수 없어 Field UI를 등록하지 못했다.");
-                return;
-            }
-
-            SceneUIRoot sceneUIRoot = null;
-            foreach (var rootObject in fieldScene.GetRootGameObjects())
-            {
-                sceneUIRoot = rootObject.GetComponentInChildren<SceneUIRoot>(true);
-                if (sceneUIRoot != null)
-                {
-                    break;
-                }
-            }
-
-            if (sceneUIRoot == null)
-            {
-                Debug.LogWarning($"'{SceneNames.Field}' 씬에서 {nameof(SceneUIRoot)}를 찾을 수 없다.");
-                return;
-            }
-
             if (!TryBind(sceneUIRoot))
             {
                 return;

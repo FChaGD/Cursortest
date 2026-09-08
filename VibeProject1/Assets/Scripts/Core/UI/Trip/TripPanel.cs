@@ -2,7 +2,6 @@
 using Game.Core.DebugTools;
 #endif
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace Game.Core
@@ -57,7 +56,7 @@ namespace Game.Core
         // 게이팅(RefreshStartButtonInteractable)과 별개 조건이라 AND로 합친다.
         private bool sceneRevealed;
 
-        public void RegisterTripUI(IUIManager uiManager, IGameManager gameManager, IFormationReader formationReader, ITripInfoProvider tripInfoProvider, ISceneRevealSignal sceneRevealSignal, ITripCurrentLocationReader currentLocationReader, ITripDestinationAssigner destinationAssigner)
+        public void RegisterTripUI(SceneUIRoot sceneUIRoot, IUIManager uiManager, IGameManager gameManager, IFormationReader formationReader, ITripInfoProvider tripInfoProvider, ISceneRevealSignal sceneRevealSignal, ITripCurrentLocationReader currentLocationReader, ITripDestinationAssigner destinationAssigner)
         {
             this.uiManager = uiManager;
             this.gameManager = gameManager;
@@ -66,29 +65,6 @@ namespace Game.Core
             this.sceneRevealSignal = sceneRevealSignal;
             this.currentLocationReader = currentLocationReader;
             this.destinationAssigner = destinationAssigner;
-
-            var hubScene = SceneManager.GetSceneByName(SceneNames.Hub);
-            if (!hubScene.IsValid())
-            {
-                Debug.LogWarning($"'{SceneNames.Hub}' 씬을 찾을 수 없어 상행 준비 UI를 등록하지 못했다.");
-                return;
-            }
-
-            SceneUIRoot sceneUIRoot = null;
-            foreach (var rootObject in hubScene.GetRootGameObjects())
-            {
-                sceneUIRoot = rootObject.GetComponentInChildren<SceneUIRoot>(true);
-                if (sceneUIRoot != null)
-                {
-                    break;
-                }
-            }
-
-            if (sceneUIRoot == null)
-            {
-                Debug.LogWarning($"'{SceneNames.Hub}' 씬에서 {nameof(SceneUIRoot)}를 찾을 수 없다.");
-                return;
-            }
 
             if (!TryBind(sceneUIRoot))
             {

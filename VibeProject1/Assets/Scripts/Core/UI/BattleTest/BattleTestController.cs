@@ -73,8 +73,14 @@ namespace Game.Core
 
             var tacticsPanel = GetComponent<ITacticsPanel>();
             var panelRegistrar = GetComponent<IPanelRegistrar>();
-            tacticsPanel.RegisterTacticsUI(tacticsRepository, uiManager, gameObject.scene.name);
-            panelRegistrar.RegisterPanel(tacticsPanel);
+            // TacticsPanel.RegisterTacticsUI가 SceneUIRoot를 매개변수로 받도록 바뀌어(Docs/Refactor/
+            // 2026-09-08_Hub.md §3 수정 J) 이 씬도 직접 조회해 넘긴다 - Hub/Field처럼 전용 XxxUIWiring이
+            // 없는 독립 씬이라 여기서 1회만 조회한다.
+            if (SceneUIRootLocator.TryFind(gameObject.scene.name, out var sceneUIRoot))
+            {
+                tacticsPanel.RegisterTacticsUI(sceneUIRoot, tacticsRepository, uiManager);
+                panelRegistrar.RegisterPanel(tacticsPanel);
+            }
 
             tacticsButton.onClick.AddListener(() => uiManager.Open(UIPanelIds.Tactics));
             startBattleButton.onClick.AddListener(HandleStartClicked);

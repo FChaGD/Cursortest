@@ -1,6 +1,5 @@
 using UnityEngine;
 using UnityEngine.Events;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace Game.Core
@@ -26,33 +25,10 @@ namespace Game.Core
         private ISceneRevealSignal sceneRevealSignal;
         private IUIManager uiManager;
 
-        public void RegisterHubUI(IUIManager uiManager, ISceneRevealSignal sceneRevealSignal)
+        public void RegisterHubUI(SceneUIRoot sceneUIRoot, IUIManager uiManager, ISceneRevealSignal sceneRevealSignal)
         {
             this.uiManager = uiManager;
             this.sceneRevealSignal = sceneRevealSignal;
-
-            var hubScene = SceneManager.GetSceneByName(SceneNames.Hub);
-            if (!hubScene.IsValid())
-            {
-                Debug.LogWarning($"'{SceneNames.Hub}' 씬을 찾을 수 없어 Hub UI를 등록하지 못했다.");
-                return;
-            }
-
-            SceneUIRoot sceneUIRoot = null;
-            foreach (var rootObject in hubScene.GetRootGameObjects())
-            {
-                sceneUIRoot = rootObject.GetComponentInChildren<SceneUIRoot>(true);
-                if (sceneUIRoot != null)
-                {
-                    break;
-                }
-            }
-
-            if (sceneUIRoot == null)
-            {
-                Debug.LogWarning($"'{SceneNames.Hub}' 씬에서 {nameof(SceneUIRoot)}를 찾을 수 없다.");
-                return;
-            }
 
             if (!sceneUIRoot.TryGetElement<RectTransform>(HubUIElementIds.ContentRoot, out var contentRoot))
             {

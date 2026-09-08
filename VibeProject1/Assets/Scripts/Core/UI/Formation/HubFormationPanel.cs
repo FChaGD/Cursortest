@@ -1,5 +1,4 @@
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace Game.Core
@@ -28,35 +27,10 @@ namespace Game.Core
 
         private FormationLayout currentLayout;
 
-        public void RegisterFormationUI(ICaravanRosterProvider rosterProvider, IFormationRepository repository, IUnitConditionRepository conditionRepository, IUIManager uiManager, string sceneName)
+        public void RegisterFormationUI(SceneUIRoot sceneUIRoot, ICaravanRosterProvider rosterProvider, IFormationRepository repository, IUnitConditionRepository conditionRepository, IUIManager uiManager)
         {
             this.repository = repository;
             this.uiManager = uiManager;
-
-            // 배치 UI 화면 요소는 콘텐츠 씬(Hub 등) 안에 있어 그 씬이 언로드되면 함께 파괴된다.
-            // 다른 콘텐츠 씬이 로드될 때마다 이 메서드가 다시 호출되어 그 씬의 사본으로 재바인딩한다.
-            var contentScene = SceneManager.GetSceneByName(sceneName);
-            if (!contentScene.IsValid())
-            {
-                Debug.LogWarning($"'{sceneName}' 씬을 찾을 수 없어 Formation UI를 등록하지 못했다.");
-                return;
-            }
-
-            SceneUIRoot sceneUIRoot = null;
-            foreach (var rootObject in contentScene.GetRootGameObjects())
-            {
-                sceneUIRoot = rootObject.GetComponentInChildren<SceneUIRoot>(true);
-                if (sceneUIRoot != null)
-                {
-                    break;
-                }
-            }
-
-            if (sceneUIRoot == null)
-            {
-                Debug.LogWarning($"'{sceneName}' 씬에서 {nameof(SceneUIRoot)}를 찾을 수 없다.");
-                return;
-            }
 
             gridEditor = new FormationGridEditor(this);
             if (!gridEditor.TryBind(sceneUIRoot, dragGhostPrefab))

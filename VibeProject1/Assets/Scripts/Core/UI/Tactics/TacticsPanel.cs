@@ -1,7 +1,6 @@
 using System.Collections.Generic;
 using TMPro;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace Game.Core
@@ -58,7 +57,7 @@ namespace Game.Core
         // 체크만으로는 "완전히 바인딩됐는지"를 판별할 수 없다 - Open()은 이 플래그로 판별한다.
         private bool isBound;
 
-        public void RegisterTacticsUI(ITacticsRepository repository, IUIManager uiManager, string sceneName)
+        public void RegisterTacticsUI(SceneUIRoot sceneUIRoot, ITacticsRepository repository, IUIManager uiManager)
         {
             isBound = false;
 
@@ -73,29 +72,6 @@ namespace Game.Core
 
             this.repository = repository;
             this.uiManager = uiManager;
-
-            var contentScene = SceneManager.GetSceneByName(sceneName);
-            if (!contentScene.IsValid())
-            {
-                Debug.LogWarning($"'{sceneName}' 씬을 찾을 수 없어 방향성 지시 UI를 등록하지 못했다.");
-                return;
-            }
-
-            SceneUIRoot sceneUIRoot = null;
-            foreach (var rootObject in contentScene.GetRootGameObjects())
-            {
-                sceneUIRoot = rootObject.GetComponentInChildren<SceneUIRoot>(true);
-                if (sceneUIRoot != null)
-                {
-                    break;
-                }
-            }
-
-            if (sceneUIRoot == null)
-            {
-                Debug.LogWarning($"'{sceneName}' 씬에서 {nameof(SceneUIRoot)}를 찾을 수 없다.");
-                return;
-            }
 
             if (!TryBind(sceneUIRoot))
             {

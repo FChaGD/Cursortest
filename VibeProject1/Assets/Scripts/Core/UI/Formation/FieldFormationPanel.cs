@@ -2,7 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 
 namespace Game.Core
@@ -28,35 +27,12 @@ namespace Game.Core
         private IFieldFormationActivityRepository activityRepository;
         private IUIManager uiManager;
 
-        public void RegisterFieldFormationUI(ICaravanRosterProvider rosterProvider, IFormationRepository formationRepository, IUnitConditionRepository conditionRepository, IFieldFormationActivityRepository activityRepository, IUIManager uiManager, string sceneName)
+        public void RegisterFieldFormationUI(SceneUIRoot sceneUIRoot, ICaravanRosterProvider rosterProvider, IFormationRepository formationRepository, IUnitConditionRepository conditionRepository, IFieldFormationActivityRepository activityRepository, IUIManager uiManager)
         {
             this.rosterProvider = rosterProvider;
             this.formationRepository = formationRepository;
             this.activityRepository = activityRepository;
             this.uiManager = uiManager;
-
-            var contentScene = SceneManager.GetSceneByName(sceneName);
-            if (!contentScene.IsValid())
-            {
-                Debug.LogWarning($"'{sceneName}' 씬을 찾을 수 없어 Formation UI를 등록하지 못했다.");
-                return;
-            }
-
-            SceneUIRoot sceneUIRoot = null;
-            foreach (var rootObject in contentScene.GetRootGameObjects())
-            {
-                sceneUIRoot = rootObject.GetComponentInChildren<SceneUIRoot>(true);
-                if (sceneUIRoot != null)
-                {
-                    break;
-                }
-            }
-
-            if (sceneUIRoot == null)
-            {
-                Debug.LogWarning($"'{sceneName}' 씬에서 {nameof(SceneUIRoot)}를 찾을 수 없다.");
-                return;
-            }
 
             gridEditor = new FormationGridEditor(this);
             if (!gridEditor.TryBind(sceneUIRoot, dragGhostPrefab))

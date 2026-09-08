@@ -14,6 +14,14 @@ namespace Game.Core
 
         public void Wire(IDependencyRegistrar registrar, IUIManager uiManager, IPanelRegistrar panelRegistrar)
         {
+            // 이 씬의 SceneUIRoot를 여기서 한 번만 찾아 아래 3개 컴포넌트 전부에 넘긴다 - 예전엔
+            // 각자 SceneManager.GetSceneByName부터 다시 조회했다(DRY, Docs/Refactor/2026-09-08_Hub.md
+            // §3 수정 J).
+            if (!SceneUIRootLocator.TryFind(SceneNames.Field, out var sceneUIRoot))
+            {
+                return;
+            }
+
             var formationPanel = GetComponent<FieldFormationPanel>();
             if (formationPanel == null)
             {
@@ -52,13 +60,13 @@ namespace Game.Core
 
             // Formation UI(정비창)는 Hub 전용이 아니다 - Field도 자신만의 화면 요소를 갖고 있어
             // (FieldUIInstaller 참고) 여기서도 다시 등록해야 "정비창 재호출"이 동작한다.
-            formationPanel.RegisterFieldFormationUI(caravanRosterProvider, formationRepository, unitConditionRepository, fieldActivityRepository, uiManager, SceneNames.Field);
+            formationPanel.RegisterFieldFormationUI(sceneUIRoot, caravanRosterProvider, formationRepository, unitConditionRepository, fieldActivityRepository, uiManager);
             panelRegistrar.RegisterPanel(formationPanel);
 
-            tacticsPanel.RegisterTacticsUI(tacticsRepository, uiManager, SceneNames.Field);
+            tacticsPanel.RegisterTacticsUI(sceneUIRoot, tacticsRepository, uiManager);
             panelRegistrar.RegisterPanel(tacticsPanel);
 
-            fieldUIController.RegisterFieldUI(uiManager, sessionState, encounterManager, battleController, battleResultSource, defeatConsequenceSource, battleSimulationEvents, gameManager, sceneRevealSignal, unitConditionRepository, currentLocationRepository, destinationAssigner, fieldActivityRepository);
+            fieldUIController.RegisterFieldUI(sceneUIRoot, uiManager, sessionState, encounterManager, battleController, battleResultSource, defeatConsequenceSource, battleSimulationEvents, gameManager, sceneRevealSignal, unitConditionRepository, currentLocationRepository, destinationAssigner, fieldActivityRepository);
 
             // Hub↔Field 씬 전환 연출(SceneTransitionEffectController)이 다음 전환 때 슬라이드시킬
             // 대상을 등록한다 - Field는 전용 요소를 새로 만들지 않고 기존 이동 뷰 루트를 재사용한다

@@ -13,6 +13,14 @@ namespace Game.Core
 
         public void Wire(IDependencyRegistrar registrar, IUIManager uiManager, IPanelRegistrar panelRegistrar)
         {
+            // 이 씬의 SceneUIRoot를 여기서 한 번만 찾아 아래 4개 컴포넌트 전부에 넘긴다 - 예전엔
+            // 각자 SceneManager.GetSceneByName부터 다시 조회했다(DRY, Docs/Refactor/2026-09-08_Hub.md
+            // §3 수정 J).
+            if (!SceneUIRootLocator.TryFind(SceneNames.Hub, out var sceneUIRoot))
+            {
+                return;
+            }
+
             var hubUIController = GetComponent<IHubUIController>();
             if (hubUIController == null)
             {
@@ -54,15 +62,15 @@ namespace Game.Core
             registrar.TryResolve<ITripCurrentLocationRepository>(out var currentLocationRepository);
             registrar.TryResolve<ITripDestinationAssigner>(out var destinationAssigner);
 
-            hubUIController.RegisterHubUI(uiManager, sceneRevealSignal);
+            hubUIController.RegisterHubUI(sceneUIRoot, uiManager, sceneRevealSignal);
 
-            formationPanel.RegisterFormationUI(caravanRosterProvider, formationRepository, unitConditionRepository, uiManager, SceneNames.Hub);
+            formationPanel.RegisterFormationUI(sceneUIRoot, caravanRosterProvider, formationRepository, unitConditionRepository, uiManager);
             panelRegistrar.RegisterPanel(formationPanel);
 
-            tripPanel.RegisterTripUI(uiManager, gameManager, formationRepository, tripInfoProvider, sceneRevealSignal, currentLocationRepository, destinationAssigner);
+            tripPanel.RegisterTripUI(sceneUIRoot, uiManager, gameManager, formationRepository, tripInfoProvider, sceneRevealSignal, currentLocationRepository, destinationAssigner);
             panelRegistrar.RegisterPanel(tripPanel);
 
-            tacticsPanel.RegisterTacticsUI(tacticsRepository, uiManager, SceneNames.Hub);
+            tacticsPanel.RegisterTacticsUI(sceneUIRoot, tacticsRepository, uiManager);
             panelRegistrar.RegisterPanel(tacticsPanel);
 
             // Hub↔Field 씬 전환 연출(SceneTransitionEffectController)이 다음 전환 때 슬라이드시킬
