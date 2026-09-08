@@ -142,6 +142,7 @@ namespace Game.Core.Editor
             EditorUIBuilder.GetOrAddComponent<TripPanel>(uiManager.gameObject);
             var tacticsPanel = EditorUIBuilder.GetOrAddComponent<TacticsPanel>(uiManager.gameObject);
             WirePartyPolicyCatalog(tacticsPanel);
+            WireRoleGroupCatalog(tacticsPanel);
             WireTacticsStringTables(tacticsPanel);
 
             // 전투 뷰 유닛 프리팹은 EditorUIBuilder(공용 조립 로직)가 자산으로 만들어 두고, 여기
@@ -182,6 +183,7 @@ namespace Game.Core.Editor
             // 방향성 지시 UI(TacticsPanel)가 반영할 대상 - 배치와 같은 성격의 인메모리 저장소.
             var tacticsRepository = EditorUIBuilder.GetOrCreateManager<InMemoryTacticsRepository>(uiManager.transform, nameof(InMemoryTacticsRepository));
             WirePartyPolicyCatalog(tacticsRepository);
+            WireRoleGroupCatalog(tacticsRepository);
 
             // 지역 시스템이 아직 없어, 상행 준비 UI 테스트용 임시 상행 요약 제공자를 등록한다.
             // 실제 데이터 시스템이 생기면 이 저장소를 함께 제거한다.
@@ -298,6 +300,29 @@ namespace Game.Core.Editor
         {
             var so = new SerializedObject(repository);
             so.FindProperty("partyPolicyCatalog").objectReferenceValue = AssetDatabase.LoadAssetAtPath<PartyTacticsPolicyCatalogAsset>(TableAssetPaths.PartyPolicyCatalog);
+            so.ApplyModifiedProperties();
+        }
+
+        // 저장소 8개를 UIManager 산하로 재배치한 뒤(2026-09-08 Bootstrap 리팩토링, 커밋 02c5dee)
+        // 새로 발견된 배선 누락: InMemoryTacticsRepository/TacticsPanel의 catalog(RoleGroupTacticsCatalogAsset)
+        // 필드는 예전엔 재사용되던 같은 오브젝트에 수동으로 인스펙터 연결돼 있었는데, GetOrCreateManager가
+        // 이름+부모 기준으로만 찾다 보니(부모가 root→uiManager로 바뀜) 매칭에 실패해 매번 새 GameObject를
+        // 만들면서 그 수동 연결이 사라졌다 - roleGroupOverride.TargetPriority가 enum 0(default)으로
+        // 새어나가 TargetSelectorFactory.Create에서 ArgumentOutOfRangeException을 던지는 실전 크래시로
+        // 이어졌다(전투 시작 시점). partyPolicyCatalog와 마찬가지로 코드로 배선해 재실행에도 안전하게 한다.
+        private static void WireRoleGroupCatalog(InMemoryTacticsRepository repository)
+        {
+            var so = new SerializedObject(repository);
+            so.FindProperty("catalog").objectReferenceValue = AssetDatabase.LoadAssetAtPath<RoleGroupTacticsCatalogAsset>(TableAssetPaths.RoleGroupTacticsCatalog);
+            so.ApplyModifiedProperties();
+        }
+
+        // TacticsPanel도 같은 이유로 catalog 배선이 누락돼 있었다(위 InMemoryTacticsRepository 사례와
+        // 동일 원인) - 이쪽은 화면 드롭다운 채우기용이라 크래시 자체의 원인은 아니지만 함께 정정한다.
+        private static void WireRoleGroupCatalog(TacticsPanel panel)
+        {
+            var so = new SerializedObject(panel);
+            so.FindProperty("catalog").objectReferenceValue = AssetDatabase.LoadAssetAtPath<RoleGroupTacticsCatalogAsset>(TableAssetPaths.RoleGroupTacticsCatalog);
             so.ApplyModifiedProperties();
         }
 
