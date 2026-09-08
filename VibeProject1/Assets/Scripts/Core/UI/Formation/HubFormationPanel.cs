@@ -1,5 +1,3 @@
-using System;
-using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -120,9 +118,10 @@ namespace Game.Core
         }
 
         // IFormationEditingHandler 구현 - 전부 로컬 currentLayout만 건드린다(Apply 전까지 미반영).
+        // "배경 진행 활동" 관련 멤버(IsUnitReserved/HandleRedirectMove/GetActiveActivities)는 Hub에
+        // 개념 자체가 없어 IFormationActivityHandler로 분리됐고, Hub는 그 인터페이스를 구현하지
+        // 않는다(ISP, Docs/Refactor/2026-09-08_공통.md §6.3 수정 G).
         public FormationLayout GetDisplayLayout() => currentLayout;
-
-        public bool IsUnitReserved(string unitId) => false; // Hub는 배경 진행 활동이 없다.
 
         public void HandlePaletteDrop(IFormationUnit unit, int targetSlotIndex)
         {
@@ -145,10 +144,6 @@ namespace Game.Core
         }
 
         public void HandleRemove(string unitId, int slotIndex) => currentLayout.Clear(slotIndex);
-
-        public void HandleRedirectMove(string unitId, int newTargetSlotIndex) { } // Hub는 진행 중인 이동 자체가 없어 호출될 일이 없다.
-
-        public IReadOnlyList<FormationActivity> GetActiveActivities() => Array.Empty<FormationActivity>(); // Hub는 진행 활동이 없다.
 
 #if UNITY_EDITOR
         public void ResizeGrid(int columns, int rows) => currentLayout = currentLayout.Resize(columns, rows);

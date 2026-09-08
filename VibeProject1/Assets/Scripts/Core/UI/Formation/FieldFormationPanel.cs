@@ -14,7 +14,7 @@ namespace Game.Core
     /// 그 저장소가 시간이 지나 활동을 완료 처리할 때 비로소 FormationLayout에 반영된다(설계 25번
     /// §3.2). 그리드/팔레트 렌더링과 드래그 이벤트 중계는 공용 로직(FormationGridEditor)에 위임한다.
     /// </summary>
-    public class FieldFormationPanel : MonoBehaviour, IUIPanel, IFormationEditingHandler
+    public class FieldFormationPanel : MonoBehaviour, IUIPanel, IFormationEditingHandler, IFormationActivityHandler
     {
         [SerializeField] private FormationUnitIconView dragGhostPrefab;
 

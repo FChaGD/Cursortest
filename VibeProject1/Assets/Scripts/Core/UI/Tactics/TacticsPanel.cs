@@ -195,9 +195,9 @@ namespace Game.Core
             if (partyPolicyCatalog != null)
             {
                 var party = repository.GetPartySettings();
-                SelectWithoutNotify(recognitionDropdown, IndexOfOption(partyPolicyCatalog.RecognitionOptions, party.RecognitionType));
-                SelectWithoutNotify(radiusDropdown, IndexOfOption(partyPolicyCatalog.RadiusOptions, party.RadiusPreset));
-                SelectWithoutNotify(pursuitDropdown, IndexOfOption(partyPolicyCatalog.PursuitOptions, party.Pursuit));
+                SelectWithoutNotify(recognitionDropdown, IndexOfOption(partyPolicyCatalog.RecognitionOptions, o => o.Value, party.RecognitionType));
+                SelectWithoutNotify(radiusDropdown, IndexOfOption(partyPolicyCatalog.RadiusOptions, o => o.Value, party.RadiusPreset));
+                SelectWithoutNotify(pursuitDropdown, IndexOfOption(partyPolicyCatalog.PursuitOptions, o => o.Value, party.Pursuit));
             }
 
             RefreshRoleGroupSelection(RoleGroup.Frontline, frontlineTargetDropdown, frontlinePositioningDropdown, frontlineSelfPreservationDropdown);
@@ -209,9 +209,9 @@ namespace Game.Core
             if (catalog == null || !catalog.TryGetEntry(roleGroup, out var entry)) return;
 
             var current = repository.GetRoleGroupOverride(roleGroup);
-            SelectWithoutNotify(targetDropdown, IndexOfOption(entry.TargetPriorityOptions, current.TargetPriority));
-            SelectWithoutNotify(positioningDropdown, IndexOfOption(entry.PositioningOptions, current.Positioning));
-            SelectWithoutNotify(selfPreservationDropdown, IndexOfOption(entry.SelfPreservationOptions, current.SelfPreservation));
+            SelectWithoutNotify(targetDropdown, IndexOfOption(entry.TargetPriorityOptions, o => o.Value, current.TargetPriority));
+            SelectWithoutNotify(positioningDropdown, IndexOfOption(entry.PositioningOptions, o => o.Value, current.Positioning));
+            SelectWithoutNotify(selfPreservationDropdown, IndexOfOption(entry.SelfPreservationOptions, o => o.Value, current.SelfPreservation));
         }
 
         private void BindPartyDropdowns()
@@ -317,56 +317,17 @@ namespace Game.Core
             dropdown.RefreshShownValue();
         }
 
-        private static int IndexOfOption(IReadOnlyList<EnemyRecognitionOption> options, EnemyRecognitionType value)
+        // 옵션 타입(EnemyRecognitionOption 등) 6종이 전부 값 하나(Value 필드)만 다르고 비교 로직은
+        // 동일해, 타입별 오버로드 6개 대신 selector를 받는 제네릭 하나로 통합했다(DRY,
+        // Docs/Refactor/2026-09-08_공통.md §6.3 수정 H). 옵션 구조체들이 공통 인터페이스를 공유하지
+        // 않아 selector 방식을 썼다 - EqualityComparer<TValue>.Default는 enum 등 값 타입 전반에서
+        // 안전하게 동작한다(IEquatable 제약 불필요).
+        private static int IndexOfOption<TOption, TValue>(IReadOnlyList<TOption> options, System.Func<TOption, TValue> valueSelector, TValue value)
         {
+            var comparer = EqualityComparer<TValue>.Default;
             for (var i = 0; i < options.Count; i++)
             {
-                if (options[i].Value == value) return i;
-            }
-            return -1;
-        }
-
-        private static int IndexOfOption(IReadOnlyList<ActivityRadiusOption> options, ActivityRadiusPreset value)
-        {
-            for (var i = 0; i < options.Count; i++)
-            {
-                if (options[i].Value == value) return i;
-            }
-            return -1;
-        }
-
-        private static int IndexOfOption(IReadOnlyList<PursuitOption> options, PursuitPreset value)
-        {
-            for (var i = 0; i < options.Count; i++)
-            {
-                if (options[i].Value == value) return i;
-            }
-            return -1;
-        }
-
-        private static int IndexOfOption(IReadOnlyList<TargetPriorityOption> options, TargetPriority value)
-        {
-            for (var i = 0; i < options.Count; i++)
-            {
-                if (options[i].Value == value) return i;
-            }
-            return -1;
-        }
-
-        private static int IndexOfOption(IReadOnlyList<LocalPositioningOption> options, LocalPositioning value)
-        {
-            for (var i = 0; i < options.Count; i++)
-            {
-                if (options[i].Value == value) return i;
-            }
-            return -1;
-        }
-
-        private static int IndexOfOption(IReadOnlyList<SelfPreservationOption> options, SelfPreservation value)
-        {
-            for (var i = 0; i < options.Count; i++)
-            {
-                if (options[i].Value == value) return i;
+                if (comparer.Equals(valueSelector(options[i]), value)) return i;
             }
             return -1;
         }

@@ -35,8 +35,6 @@ namespace Game.Core
                     Debug.LogWarning($"'{wiring.SceneId}'에 대한 {nameof(IContentSceneUIWiring)}이 중복 등록되어 있다: {wiring.GetType().Name}", this);
                 }
             }
-
-            // TODO: TacticsPanel, HUDPanel, ResultPanel 등 추가 IUIPanel 구현체 연결 - 각 하위 컴포넌트 설계 후 구현
         }
 
         public event Action<bool> OnAnyPanelOpenChanged;

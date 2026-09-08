@@ -17,6 +17,10 @@ namespace Game.Core
     internal class FormationGridEditor
     {
         private readonly IFormationEditingHandler handler;
+        // "배경 진행 활동"은 Field에만 있는 개념이라(IFormationActivityHandler, ISP) Hub 핸들러는
+        // 이 인터페이스를 구현하지 않는다 - 캐스팅 결과가 null이면 아래 각 사용처가 "활동 없음"으로
+        // 취급한다(Docs/Refactor/2026-09-08_공통.md §6.3 수정 G).
+        private readonly IFormationActivityHandler activityHandler;
         private readonly FormationDragCoordinator dragCoordinator = new();
 
         private GameObject panelRoot;
@@ -36,6 +40,12 @@ namespace Game.Core
         private readonly Dictionary<string, IFormationUnit> unitsById = new();
         private IReadOnlyList<IFormationUnit> currentRoster = Array.Empty<IFormationUnit>();
 
+        // TickActivityOverlays가 매 프레임 호출되므로(Field 배치 UI가 열려 있는 동안) 매번 새로
+        // 할당하지 않고 이 두 버퍼를 Clear()해서 재사용한다(최적화, Docs/Refactor/2026-09-08_공통.md
+        // §6.3 수정 F).
+        private readonly List<FormationActivityOverlayVisual> activityOverlayBuffer = new();
+        private readonly List<FormationMovePathVisual> movePathBuffer = new();
+
         public GameObject PanelRoot => panelRoot;
         // 배치가 아직 하나도 저장된 적 없을 때(repository.TryLoadCurrent 실패) 핸들러가 기본 그리드
         // 모양을 결정하는 데 쓴다 - FormationGridView의 인스펙터 기본값이 단일 출처다.
@@ -45,6 +55,7 @@ namespace Game.Core
         public FormationGridEditor(IFormationEditingHandler handler)
         {
             this.handler = handler;
+            activityHandler = handler as IFormationActivityHandler;
         }
 
         public bool TryBind(SceneUIRoot sceneUIRoot, FormationUnitIconView dragGhostPrefab)
@@ -167,28 +178,28 @@ namespace Game.Core
                 return;
             }
 
-            var activities = handler.GetActiveActivities();
-            var overlays = new List<FormationActivityOverlayVisual>();
-            var movePaths = new List<FormationMovePathVisual>();
+            var activities = activityHandler?.GetActiveActivities() ?? Array.Empty<FormationActivity>();
+            activityOverlayBuffer.Clear();
+            movePathBuffer.Clear();
 
             foreach (var activity in activities)
             {
                 unitsById.TryGetValue(activity.UnitId, out var unit);
 
-                overlays.Add(new FormationActivityOverlayVisual(activity.TargetSlotIndex, activity, unit));
+                activityOverlayBuffer.Add(new FormationActivityOverlayVisual(activity.TargetSlotIndex, activity, unit));
 
                 if (activity.Kind == FormationActivityKind.Moving)
                 {
-                    overlays.Add(new FormationActivityOverlayVisual(activity.OriginSlotIndex, activity, unit));
+                    activityOverlayBuffer.Add(new FormationActivityOverlayVisual(activity.OriginSlotIndex, activity, unit));
                     // 이동 중인 유닛 아이콘이 경로 위를 실시간으로 지나가도록(기획 20번 §3.3) 진행률과
-                    // 아이콘을 함께 넘긴다 - 정적인 출발/도착 오버레이(위 overlays)와는 별개다.
-                    movePaths.Add(new FormationMovePathVisual(activity.PathSlotIndices, activity.Progress01, unit?.Icon, activity.PartialSegmentIndex, activity.PartialSegmentWeight));
+                    // 아이콘을 함께 넘긴다 - 정적인 출발/도착 오버레이(위 activityOverlayBuffer)와는 별개다.
+                    movePathBuffer.Add(new FormationMovePathVisual(activity.PathSlotIndices, activity.Progress01, unit?.Icon, activity.PartialSegmentIndex, activity.PartialSegmentWeight));
                 }
             }
 
-            gridView.SetPathLines(movePaths);
-            gridView.SetActivityOverlays(overlays, HandleActivityGhostBeginDrag, HandleIconDrag, HandleActivityGhostEndDrag);
-            gridView.SetTravelerIcons(movePaths);
+            gridView.SetPathLines(movePathBuffer);
+            gridView.SetActivityOverlays(activityOverlayBuffer, HandleActivityGhostBeginDrag, HandleIconDrag, HandleActivityGhostEndDrag);
+            gridView.SetTravelerIcons(movePathBuffer);
         }
 
         private void RefreshRosterCache()
@@ -253,7 +264,7 @@ namespace Game.Core
             {
                 if (!FormationCategoryKey.Of(unit).Equals(key)) continue;
                 if (placedIds.Contains(unit.Id)) continue;
-                if (handler.IsUnitReserved(unit.Id)) continue;
+                if (activityHandler?.IsUnitReserved(unit.Id) ?? false) continue;
                 if (conditionRepository != null && unit is IMercenaryUnit && conditionRepository.IsDead(unit.Id)) continue;
 
                 return unit;
@@ -300,8 +311,8 @@ namespace Game.Core
 
                 var isDead = conditionRepository != null && unit is IMercenaryUnit && conditionRepository.IsDead(unit.Id);
                 // Field에서는 아직 배치가 완료되지 않았어도(레이아웃엔 안 나타남) 이미 다른 진행 중
-                // 활동에 쓰이고 있으면 예약된 것으로 본다(handler.IsUnitReserved, 설계 25번 §3.3).
-                var isReserved = placedIds.Contains(unit.Id) || handler.IsUnitReserved(unit.Id);
+                // 활동에 쓰이고 있으면 예약된 것으로 본다(activityHandler.IsUnitReserved, 설계 25번 §3.3).
+                var isReserved = placedIds.Contains(unit.Id) || (activityHandler?.IsUnitReserved(unit.Id) ?? false);
                 if (!isDead && !isReserved)
                 {
                     availables[key]++;
@@ -345,7 +356,8 @@ namespace Game.Core
 
         private bool IsMovingAwayFrom(int slotIndex, string unitId)
         {
-            foreach (var activity in handler.GetActiveActivities())
+            var activities = activityHandler?.GetActiveActivities() ?? Array.Empty<FormationActivity>();
+            foreach (var activity in activities)
             {
                 if (activity.UnitId == unitId && activity.Kind == FormationActivityKind.Moving && activity.OriginSlotIndex == slotIndex)
                 {
@@ -369,7 +381,7 @@ namespace Game.Core
             dragCoordinator.BeginRedirect(unit, eventData);
         }
 
-        // 슬롯에 드롭됐다면 HandleSlotDropped가 이미 handler.HandleRedirectMove를 호출했다 - 여기서는
+        // 슬롯에 드롭됐다면 HandleSlotDropped가 이미 activityHandler.HandleRedirectMove를 호출했다 - 여기서는
         // 드래그 상태만 정리한다. 빈 곳에 드롭해도(취소) 진행 중이던 이동 자체는 그대로 유지되므로
         // (유닛 아이콘 드래그의 "빈 곳=제거" 규칙과 다르다) 슬롯/팔레트를 다시 그릴 필요가 없다.
         private void HandleActivityGhostEndDrag(PointerEventData eventData) => dragCoordinator.EndDrag();
@@ -389,7 +401,10 @@ namespace Game.Core
             // TickActivityOverlays()가 새 목적지 위치로 자연히 다시 그린다.
             if (dragCoordinator.IsRedirect)
             {
-                handler.HandleRedirectMove(draggedUnit.Id, targetSlotIndex);
+                // IsRedirect는 BeginRedirect/BeginRedirectFromGrid를 거쳐야만 true가 되고, 그 경로는
+                // activityHandler가 있을 때만(진행 중 활동이 있을 때만) 도달하므로 여기서는 항상
+                // non-null이다.
+                activityHandler?.HandleRedirectMove(draggedUnit.Id, targetSlotIndex);
                 return;
             }
 
