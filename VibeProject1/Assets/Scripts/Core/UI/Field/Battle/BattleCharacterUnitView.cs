@@ -114,14 +114,9 @@ namespace Game.Core
         // Tick 없이 뷰가 마지막 도주 속도(FleeVelocity)를 그대로 이어받아 순수 연출로만 이동시킨다.
         private void HandleFled() => StartCoroutine(FleeFadeOutAndDestroy(unit.FleeVelocity));
 
-        private IEnumerator FlashWhite()
-        {
-            bodyRenderer.color = FlashColor;
-            yield return new WaitForSeconds(HitFlashSeconds);
-            // 사망 연출(빨간 틴트)이 이미 시작됐다면 원래 색으로 되돌리지 않는다 - 킬링 블로우처럼
-            // OnDamaged와 OnDied가 같은 프레임에 함께 발생하면, 이 지연 복원이 사망 틴트를 덮어써버린다.
-            if (bodyRenderer != null && unit.IsAlive) bodyRenderer.color = baseColor;
-        }
+        // 사망 연출(빨간 틴트)이 이미 시작됐다면 원래 색으로 되돌리지 않는다 - 킬링 블로우처럼
+        // OnDamaged와 OnDied가 같은 프레임에 함께 발생하면, 이 지연 복원이 사망 틴트를 덮어써버린다.
+        private IEnumerator FlashWhite() => BattleHitFlash.Run(bodyRenderer, FlashColor, baseColor, HitFlashSeconds, () => unit.IsAlive);
 
         private IEnumerator Lunge(Vector2 direction)
         {

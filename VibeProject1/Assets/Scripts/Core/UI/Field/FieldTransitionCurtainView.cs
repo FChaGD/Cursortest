@@ -16,22 +16,9 @@ namespace Game.Core
     {
         [SerializeField] private CanvasGroup canvasGroup;
 
-        public void Show()
-        {
-            gameObject.SetActive(true);
-            canvasGroup.alpha = 1f;
-        }
+        public void Show() => CanvasGroupCurtainFader.Show(gameObject, canvasGroup);
 
         public void FadeOut(MonoBehaviour coroutineRunner, float duration, Action onComplete)
-        {
-            SlideTransitionTimeline.Run(coroutineRunner, duration,
-                onStep: t => canvasGroup.alpha = 1f - t,
-                onComplete: () =>
-                {
-                    canvasGroup.alpha = 0f;
-                    gameObject.SetActive(false);
-                    onComplete?.Invoke();
-                });
-        }
+            => CanvasGroupCurtainFader.FadeOut(coroutineRunner, gameObject, canvasGroup, duration, onComplete);
     }
 }

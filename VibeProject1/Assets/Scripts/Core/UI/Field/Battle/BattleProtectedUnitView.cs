@@ -58,12 +58,7 @@ namespace Game.Core
         private void HandleDamaged(float amount) => StartCoroutine(FlashWhite());
         private void HandleDestroyed() => StartCoroutine(FadeAndDestroy());
 
-        private IEnumerator FlashWhite()
-        {
-            bodyRenderer.color = FlashColor;
-            yield return new WaitForSeconds(HitFlashSeconds);
-            if (bodyRenderer != null) bodyRenderer.color = baseColor;
-        }
+        private IEnumerator FlashWhite() => BattleHitFlash.Run(bodyRenderer, FlashColor, baseColor, HitFlashSeconds);
 
         private IEnumerator FadeAndDestroy()
         {
