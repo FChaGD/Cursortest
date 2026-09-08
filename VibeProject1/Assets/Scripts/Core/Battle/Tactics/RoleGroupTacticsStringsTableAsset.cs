@@ -22,13 +22,10 @@ namespace Game.Core
 
         private static bool TryGetLabel(List<LocalizedStringEntry> strings, int id, out string ko)
         {
-            foreach (var entry in strings)
+            if (TableEntryLookup.TryFind(strings, id, e => e.Id, out var entry))
             {
-                if (entry.Id == id)
-                {
-                    ko = entry.Ko;
-                    return true;
-                }
+                ko = entry.Ko;
+                return true;
             }
 
             ko = null;

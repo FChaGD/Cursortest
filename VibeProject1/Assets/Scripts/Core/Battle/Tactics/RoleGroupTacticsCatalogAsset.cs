@@ -48,19 +48,7 @@ namespace Game.Core
         [SerializeField] private List<RoleGroupCatalogEntry> entries = new();
 
         public bool TryGetEntry(RoleGroup roleGroup, out RoleGroupCatalogEntry entry)
-        {
-            foreach (var candidate in entries)
-            {
-                if (candidate.RoleGroup == roleGroup)
-                {
-                    entry = candidate;
-                    return true;
-                }
-            }
-
-            entry = default;
-            return false;
-        }
+            => TableEntryLookup.TryFind(entries, roleGroup, e => e.RoleGroup, out entry);
 
         public IReadOnlyList<RoleGroupCatalogEntry> Entries => entries;
     }
