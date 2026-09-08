@@ -213,9 +213,15 @@ namespace Game.Core.Editor
 
         // Hub↔Field 씬 전환 연출용 커튼은 Bootstrap(영속) 스코프여야 한다 - 콘텐츠 씬 스코프 오브젝트는
         // 그 씬이 언로드되는 순간 함께 파괴되기 때문이다(Docs/설계/10-2026-08-26-씬전환_연출_아키텍처.md §5).
-        // CanvasScaler 설정은 Hub/Field 콘텐츠 씬 캔버스와 반드시 대조해 맞춰야 한다 - 다르면 슬라이드
-        // 거리/커튼 커버리지가 화면상 어긋난다(§12 남은 이슈). 아래 값은 이 프로젝트의 일반적인 설정을
-        // 가정한 자리표시자다.
+        // 스케일 모드는 Hub.unity/Field.unity 실측(uiScaleMode=0=ConstantPixelSize, scaleFactor=1)과
+        // 반드시 일치해야 한다(2026-09-08 실전 확인 - Docs/Refactor/2026-09-08_Hub.md §2-3/§3 수정 K 정정).
+        // ScaleWithScreenSize + referenceResolution 값을 콘텐츠 씬과 맞추는 걸로는 부족하다 -
+        // SceneTransitionEffectController.PlayTransition이 contentRoot.rect.width(콘텐츠 캔버스의 1:1
+        // 픽셀 단위 값)를 커튼의 anchoredPosition에 그대로 대입하는데, 커튼이 ScaleWithScreenSize라면
+        // 그 값이 커튼 자신의 scaleFactor로 다시 배율되어(예: 1920x1080 화면에서 referenceResolution
+        // 800x600이면 2.4배) 슬라이드 시작/도착 타이밍이 어긋나 커튼과 콘텐츠 사이에 빈 화면이 보이는
+        // 회귀가 있었다(실전 확인). ConstantPixelSize로 맞추면 두 캔버스가 항상 "1 unit = 1 픽셀"로
+        // 일치해 이 문제가 해상도와 무관하게 근본적으로 사라진다.
         private static void EnsureSceneTransitionCurtain(Transform managersRoot, SceneTransitionEffectController controller)
         {
             var canvas = EditorUIBuilder.GetOrCreateManager<Canvas>(managersRoot, "SceneTransitionCanvas");
@@ -224,10 +230,8 @@ namespace Game.Core.Editor
             canvas.sortingOrder = 100; // Hub/Field 콘텐츠 씬 캔버스보다 항상 위에 그려지도록 충분히 높은 값
 
             var scaler = EditorUIBuilder.GetOrAddComponent<CanvasScaler>(canvas.gameObject);
-            scaler.uiScaleMode = CanvasScaler.ScaleMode.ScaleWithScreenSize;
-            scaler.referenceResolution = new Vector2(1920f, 1080f);
-            scaler.screenMatchMode = CanvasScaler.ScreenMatchMode.MatchWidthOrHeight;
-            scaler.matchWidthOrHeight = 0.5f;
+            scaler.uiScaleMode = CanvasScaler.ScaleMode.ConstantPixelSize;
+            scaler.scaleFactor = 1f;
 
             EditorUIBuilder.GetOrAddComponent<GraphicRaycaster>(canvas.gameObject);
 
