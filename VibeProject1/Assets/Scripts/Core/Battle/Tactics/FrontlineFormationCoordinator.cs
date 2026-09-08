@@ -127,7 +127,7 @@ namespace Game.Core
         public FrontlineLineGeometry ComputeLineGeometry(IReadOnlyList<IDamageable> clusterEnemies, IReadOnlyList<IDamageable> protectionCandidates)
         {
             var anchorCenter = ComputeAnchorCenter(clusterEnemies, protectionCandidates);
-            var enemyCenter = ComputeAveragePosition(clusterEnemies);
+            var enemyCenter = DamageableCollectionUtils.ComputeAveragePosition(clusterEnemies);
 
             var toEnemy = enemyCenter - anchorCenter;
             // 0벡터 가드(§12.5) - 적이 anchorCenter와 정확히 겹치면 axisDir=zero, canonicalPoint=anchorCenter.
@@ -243,7 +243,7 @@ namespace Game.Core
                 {
                     foreach (var enemy in candidate.RecognizedEnemies)
                     {
-                        if (enemy.IsAlive) AddDistinct(poolRecognizedEnemiesBuffer, enemy);
+                        if (enemy.IsAlive) DamageableCollectionUtils.AddDistinct(poolRecognizedEnemiesBuffer, enemy);
                     }
                 }
 
@@ -301,7 +301,7 @@ namespace Game.Core
             {
                 foreach (var enemy in member.RecognizedEnemies)
                 {
-                    if (enemy.IsAlive) AddDistinct(recognizedUnionBuffer, enemy);
+                    if (enemy.IsAlive) DamageableCollectionUtils.AddDistinct(recognizedUnionBuffer, enemy);
                 }
             }
             return recognizedUnionBuffer;
@@ -440,30 +440,16 @@ namespace Game.Core
             anchorCandidateBuffer.Clear();
             foreach (var enemy in clusterEnemies)
             {
-                AddDistinct(anchorCandidateBuffer, FindNearest(enemy.Position, protectionCandidates));
+                DamageableCollectionUtils.AddDistinct(anchorCandidateBuffer, FindNearest(enemy.Position, protectionCandidates));
 
                 if (enemy is IBattleCombatant combatant && combatant.CurrentTarget != null
-                    && ContainsReference(protectionCandidates, combatant.CurrentTarget))
+                    && DamageableCollectionUtils.ContainsReference(protectionCandidates, combatant.CurrentTarget))
                 {
-                    AddDistinct(anchorCandidateBuffer, combatant.CurrentTarget);
+                    DamageableCollectionUtils.AddDistinct(anchorCandidateBuffer, combatant.CurrentTarget);
                 }
             }
 
-            return anchorCandidateBuffer.Count > 0 ? ComputeAveragePosition(anchorCandidateBuffer) : Vector2.zero;
-        }
-
-        private static void AddDistinct(List<IDamageable> list, IDamageable candidate)
-        {
-            if (candidate != null && !ContainsReference(list, candidate)) list.Add(candidate);
-        }
-
-        private static bool ContainsReference(IReadOnlyList<IDamageable> list, IDamageable value)
-        {
-            for (var i = 0; i < list.Count; i++)
-            {
-                if (ReferenceEquals(list[i], value)) return true;
-            }
-            return false;
+            return anchorCandidateBuffer.Count > 0 ? DamageableCollectionUtils.ComputeAveragePosition(anchorCandidateBuffer) : Vector2.zero;
         }
 
         private static IDamageable FindNearest(Vector2 position, IReadOnlyList<IDamageable> candidates)
@@ -480,15 +466,6 @@ namespace Game.Core
                 }
             }
             return nearest;
-        }
-
-        private static Vector2 ComputeAveragePosition(IReadOnlyList<IDamageable> units)
-        {
-            if (units.Count == 0) return Vector2.zero;
-
-            var sum = Vector2.zero;
-            foreach (var unit in units) sum += unit.Position;
-            return sum / units.Count;
         }
 
         private static float ComputeMaxRange(IReadOnlyList<IDamageable> units)

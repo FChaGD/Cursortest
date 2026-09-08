@@ -103,13 +103,13 @@ namespace Game.Core
             {
                 foreach (var enemy in member.RecognizedEnemies)
                 {
-                    if (enemy.IsAlive) AddDistinct(ring.RecognizedUnion, enemy);
+                    if (enemy.IsAlive) DamageableCollectionUtils.AddDistinct(ring.RecognizedUnion, enemy);
                 }
             }
 
             if (ring.RecognizedUnion.Count == 0) return;
 
-            ring.ClusterCenter = ComputeAveragePosition(ring.RecognizedUnion);
+            ring.ClusterCenter = DamageableCollectionUtils.ComputeAveragePosition(ring.RecognizedUnion);
             ring.ClusterBoundingRadius = ComputeBoundingRadius(ring.ClusterCenter, ring.RecognizedUnion);
         }
 
@@ -165,7 +165,7 @@ namespace Game.Core
                 if (ally.CurrentTarget != null && !IsAssigned(ally)) hasUnassignedCandidate = true;
                 foreach (var enemy in ally.RecognizedEnemies)
                 {
-                    if (enemy.IsAlive) AddDistinct(globalRecognizedBuffer, enemy);
+                    if (enemy.IsAlive) DamageableCollectionUtils.AddDistinct(globalRecognizedBuffer, enemy);
                 }
             }
 
@@ -207,7 +207,7 @@ namespace Game.Core
         {
             foreach (var cluster in clusters)
             {
-                if (ContainsReference(cluster, target)) return cluster;
+                if (DamageableCollectionUtils.ContainsReference(cluster, target)) return cluster;
             }
             return null;
         }
@@ -224,7 +224,7 @@ namespace Game.Core
 
                 foreach (var enemy in ring.RecognizedUnion)
                 {
-                    if (ContainsReference(targetCluster, enemy)) return ring;
+                    if (DamageableCollectionUtils.ContainsReference(targetCluster, enemy)) return ring;
                 }
             }
             return null;
@@ -236,7 +236,7 @@ namespace Game.Core
         private static SurroundRing CreateRing(IReadOnlyList<IDamageable> cluster, float dealerRange)
         {
             var ring = new SurroundRing(dealerRange);
-            ring.ClusterCenter = ComputeAveragePosition(cluster);
+            ring.ClusterCenter = DamageableCollectionUtils.ComputeAveragePosition(cluster);
             ring.ClusterBoundingRadius = ComputeBoundingRadius(ring.ClusterCenter, cluster);
             ring.CurrentRadius = ring.ClusterBoundingRadius + dealerRange;
             foreach (var enemy in cluster) ring.RecognizedUnion.Add(enemy);
@@ -262,30 +262,6 @@ namespace Game.Core
                     }
                 }
             }
-        }
-
-        private static void AddDistinct(List<IDamageable> list, IDamageable candidate)
-        {
-            if (candidate != null && !list.Contains(candidate)) list.Add(candidate);
-        }
-
-        // IReadOnlyList<IDamageable>는 Contains가 없어(List<T>와 달리) 수동 순회가 필요하다 -
-        // FrontlineFormationCoordinator.ContainsReference와 같은 이유.
-        private static bool ContainsReference(IReadOnlyList<IDamageable> list, IDamageable value)
-        {
-            for (var i = 0; i < list.Count; i++)
-            {
-                if (ReferenceEquals(list[i], value)) return true;
-            }
-            return false;
-        }
-
-        private static Vector2 ComputeAveragePosition(IReadOnlyList<IDamageable> units)
-        {
-            if (units.Count == 0) return Vector2.zero;
-            var sum = Vector2.zero;
-            foreach (var unit in units) sum += unit.Position;
-            return sum / units.Count;
         }
 
         private static float ComputeBoundingRadius(Vector2 center, IReadOnlyList<IDamageable> units)
